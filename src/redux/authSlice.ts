@@ -1,6 +1,14 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-const initialState = {
+// Definir el tipo de usuario
+type User = {
+  uid: string;
+  email: string;
+  airport: string;
+};
+
+// Definir el estado inicial con `user` correctamente tipado
+const initialState: { user: User | null } = {
   user: null,
 };
 
@@ -8,7 +16,7 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setUser: (state, action) => {
+    setUser: (state, action: PayloadAction<User>) => {
       state.user = action.payload;
     },
     logout: (state) => {
