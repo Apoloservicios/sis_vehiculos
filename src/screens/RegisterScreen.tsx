@@ -1,142 +1,78 @@
 import React, { useState } from "react";
-import { View, StyleSheet } from "react-native";
-import { Text, TextInput, Button, ActivityIndicator, HelperText, Menu } from "react-native-paper";
+import { View, Text, TextInput, Button, StyleSheet, Alert } from "react-native";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth, db } from "../../firebaseConfig";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { collection, doc, setDoc } from "firebase/firestore";
+import { auth } from "../../firebaseConfig";
+import { useDispatch } from "react-redux";
+import { setUser } from "../redux/authSlice";
+import { DrawerScreenProps } from "@react-navigation/drawer";
+import { DrawerParamList } from "../navigation/types";
 
-type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  Home: undefined;
-};
+type Props = DrawerScreenProps<DrawerParamList, "Register">;
 
-type RegisterScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, "Register">;
+const airports = ["AFA", "LGS", "MDZ", "UAQ"];
 
-interface Props {
-  navigation: RegisterScreenNavigationProp;
-}
-
-const AIRPORTS = ["AFA", "LGS", "MDZ", "UAQ"]; // Lista de aeropuertos
-
-const RegisterScreen: React.FC<Props> = ({ navigation }) => {
+export default function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [airport, setAirport] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [menuVisible, setMenuVisible] = useState(false); // Estado para mostrar menú
+  const dispatch = useDispatch();
 
   const handleRegister = async () => {
-    setLoading(true);
-    setError("");
-
     if (!airport) {
-      setError("Selecciona un aeropuerto.");
-      setLoading(false);
+      Alert.alert("Error", "Selecciona un aeropuerto");
       return;
     }
-
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // Guardar usuario en Firestore
-      await setDoc(doc(collection(db, "usuarios"), user.uid), {
-        uid: user.uid,
-        email: email,
-        airport: airport,
-        role: "admin", // Por defecto admin hasta que otro admin lo cambie
-      });
-
-      navigation.replace("Home"); // Llevar al usuario a Home después de registrarse
+      const newUser = userCredential.user;
+      dispatch(setUser({ uid: newUser.uid, email: newUser.email, airport }));
+      navigation.navigate("Inicio");
     } catch (error) {
-      setError("No se pudo crear la cuenta. Verifica los datos.");
+      Alert.alert("Error", "No se pudo crear la cuenta");
     }
-
-    setLoading(false);
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Registro</Text>
-
       <TextInput
-        label="Correo Electrónico"
-        mode="outlined"
+        style={styles.input}
+        placeholder="Correo"
+        keyboardType="email-address"
+        autoCapitalize="none"
         value={email}
         onChangeText={setEmail}
-        style={styles.input}
-        left={<TextInput.Icon icon="email" />}
       />
-
       <TextInput
-        label="Contraseña"
-        mode="outlined"
+        style={styles.input}
+        placeholder="Contraseña"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
-        style={styles.input}
-        left={<TextInput.Icon icon="lock" />}
       />
 
-      {/* Selector de aeropuerto */}
-      <Menu
-        visible={menuVisible}
-        onDismiss={() => setMenuVisible(false)}
-        anchor={
-          <Button mode="outlined" onPress={() => setMenuVisible(true)} style={styles.input}>
-            {airport ? `Aeropuerto: ${airport}` : "Selecciona tu aeropuerto"}
-          </Button>
-        }
-      >
-        {AIRPORTS.map((airportOption) => (
-          <Menu.Item key={airportOption} onPress={() => { setAirport(airportOption); setMenuVisible(false); }} title={airportOption} />
-        ))}
-      </Menu>
-      {error && <HelperText type="error">{error}</HelperText>}
+      <Text style={styles.label}>Selecciona Aeropuerto:</Text>
+      {airports.map((ap) => (
+        <Button
+          key={ap}
+          title={ap === airport ? `[X] ${ap}` : ap}
+          onPress={() => setAirport(ap)}
+          color={ap === airport ? "green" : "gray"}
+        />
+      ))}
 
-      {loading ? (
-        <ActivityIndicator animating={true} size="large" />
-      ) : (
-        <Button mode="contained" onPress={handleRegister} style={styles.button}>
-          Registrarse
-        </Button>
-      )}
-
-      <Button mode="text" onPress={() => navigation.navigate("Login")}>
+      <Button title="Registrarme" onPress={handleRegister} />
+      <Text style={styles.link} onPress={() => navigation.navigate("Login")}>
         ¿Ya tienes cuenta? Inicia sesión
-      </Button>
+      </Text>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#f4f4f4",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-  input: {
-    width: "100%",
-    marginBottom: 15,
-  },
-  button: {
-    marginTop: 10,
-    width: "100%",
-  },
-  error: {
-    color: "red",
-    marginBottom: 10,
-  },
+  container: { flex: 1, justifyContent: "center", padding: 20 },
+  title: { fontSize: 24, fontWeight: "bold", textAlign: "center", marginBottom: 20 },
+  input: { borderWidth: 1, borderColor: "#ccc", marginBottom: 12, padding: 8, borderRadius: 4 },
+  label: { marginVertical: 10 },
+  link: { marginTop: 15, textAlign: "center", color: "blue" },
 });
-
-export default RegisterScreen;

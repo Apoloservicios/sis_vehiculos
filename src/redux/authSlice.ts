@@ -1,14 +1,17 @@
+// src/redux/authSlice.ts
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-// Definir el tipo de usuario
-type User = {
+interface User {
   uid: string;
-  email: string;
+  email: string | null;
   airport: string;
-};
+}
 
-// Definir el estado inicial con `user` correctamente tipado
-const initialState: { user: User | null } = {
+interface AuthState {
+  user: User | null;
+}
+
+const initialState: AuthState = {
   user: null,
 };
 
@@ -16,7 +19,7 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    setUser: (state, action: PayloadAction<User>) => {
+    setUser: (state, action: PayloadAction<User | null>) => {
       state.user = action.payload;
     },
     logout: (state) => {

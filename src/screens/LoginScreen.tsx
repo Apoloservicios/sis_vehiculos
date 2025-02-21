@@ -1,122 +1,89 @@
+// src/screens/LoginScreen.tsx
 import React, { useState } from "react";
-import { View, StyleSheet } from "react-native";
-import { Text, TextInput, Button, ActivityIndicator } from "react-native-paper";
+import { View, Text, TextInput, Button, ImageBackground, StyleSheet, Alert } from "react-native";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth, db } from "../../firebaseConfig";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { doc, getDoc } from "firebase/firestore";
 import { useDispatch } from "react-redux";
 import { setUser } from "../redux/authSlice";
+import { doc, getDoc } from "firebase/firestore";
+import { Image } from "react-native";
 
-type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  Home: undefined;
-};
-
-type LoginScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, "Login">;
-
-interface Props {
-  navigation: LoginScreenNavigationProp;
-}
-
-const LoginScreen: React.FC<Props> = ({ navigation }) => {
+export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const dispatch = useDispatch();
 
   const handleLogin = async () => {
-    setLoading(true);
-    setError("");
-
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-
-      // Obtener datos del usuario desde Firestore
-      const userDoc = await getDoc(doc(db, "usuarios", user.uid));
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        dispatch(setUser({ uid: user.uid, email: user.email, airport: userData.airport }));
-        navigation.replace("Home");
+      const userFb = userCredential.user;
+      // Leer airport en Firestore
+      const docRef = doc(db, "usuarios", userFb.uid);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const userData = snap.data();
+        dispatch(setUser({
+          uid: userFb.uid,
+          email: userFb.email,
+          airport: userData.airport || "",
+        }));
+        navigation.navigate("Inicio");
       } else {
-        setError("Usuario no encontrado en la base de datos.");
+        Alert.alert("Error", "No se encontró el usuario en la base de datos");
       }
     } catch (error) {
-      setError("Credenciales incorrectas.");
+      Alert.alert("Error", "Credenciales incorrectas");
     }
-
-    setLoading(false);
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Iniciar Sesión</Text>
-
-      <TextInput
-        label="Correo Electrónico"
-        mode="outlined"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        left={<TextInput.Icon icon="email" />}
-      />
-
-      <TextInput
-        label="Contraseña"
-        mode="outlined"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-        left={<TextInput.Icon icon="lock" />}
-      />
-
-      {error ? <Text style={styles.error}>{error}</Text> : null}
-
-      {loading ? (
-        <ActivityIndicator animating={true} size="large" />
-      ) : (
-        <Button mode="contained" onPress={handleLogin} style={styles.button}>
-          Ingresar
-        </Button>
-      )}
-
-      <Button mode="text" onPress={() => navigation.navigate("Register")}>
-        ¿No tienes cuenta? Regístrate
-      </Button>
-    </View>
+    <ImageBackground source={require("../../assets/bg_aeropuerto.png")} style={styles.bg}>
+      <View style={styles.overlay}>
+        <View style={styles.logoContainer}>
+        <Image 
+                    source={require('../../assets/logoblancoT.png')}
+                    style={styles.logo} 
+                />
+        </View>
+        <View style={styles.form}>
+          <Text style={styles.label}>Usuario</Text>
+          <TextInput style={styles.input} value={email} onChangeText={setEmail} />
+          <Text style={styles.label}>Contraseña</Text>
+          <TextInput style={styles.input} value={password} onChangeText={setPassword} secureTextEntry />
+          <View style={{ marginTop: 20 }}>
+            <Button title="Ingresar" onPress={handleLogin} color="#007AFF" />
+          </View>
+          <Text style={styles.register} onPress={() => navigation.navigate("Register")}>
+            ¿No tienes cuenta? Regístrate
+          </Text>
+        </View>
+      </View>
+    </ImageBackground>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+  bg: { flex: 1, width: "100%", height: "100%" },
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.2)" },
+  logoContainer: { alignItems: "center", marginTop: 60 },
+  logo: {  width: 175,  // Ancho deseado del contenedor de la imagen
+    height: 175, // Alto deseado del contenedor de la imagen
+    resizeMode: 'contain' },
+  form: {
+    backgroundColor: "#ffffffcc",
+    margin: 20,
+    borderRadius: 12,
     padding: 20,
-    backgroundColor: "#f4f4f4",
+    marginTop: 100,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
+  label: { fontWeight: "bold", marginTop: 10 },
   input: {
-    width: "100%",
-    marginBottom: 15,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ccc",
+    marginBottom: 12,
+    padding: 8,
+    borderRadius: 4,
   },
-  button: {
-    marginTop: 10,
-    width: "100%",
-  },
-  error: {
-    color: "red",
-    marginBottom: 10,
-  },
+  register: { marginTop: 15, textAlign: "center", color: "#007AFF" },
 });
-
-export default LoginScreen;

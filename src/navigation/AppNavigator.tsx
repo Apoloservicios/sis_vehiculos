@@ -1,31 +1,56 @@
-import React from "react";
-import { createNativeStackNavigator } from "@react-navigation/native-stack";
+// src/navigation/AppNavigator.tsx
+import React, { useEffect } from "react";
+import { createDrawerNavigator } from "@react-navigation/drawer";
 import { NavigationContainer } from "@react-navigation/native";
 import HomeScreen from "../screens/HomeScreen";
+import VehiclesScreen from "../screens/VehiclesScreen";
+import RegisterRecorrido from "../screens/RegisterRecorrido";
+import RecorridosScreen from "../screens/RecorridosScreen"; // Asegúrate de importarlo
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
-import VehiclesScreen from "../screens/VehiclesScreen"; 
+import { useSelector, useDispatch } from "react-redux";
+import { RootState, AppDispatch } from "../redux/store";
+import { logout } from "../redux/authSlice";
+import { fetchVehicles } from "../redux/vehiclesSlice";
+import { TouchableOpacity } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  Home: undefined;
-  Vehicles: undefined;
-};
+const Drawer = createDrawerNavigator();
 
-const Stack = createNativeStackNavigator<RootStackParamList>();
+function CustomLogoutButton() {
+  const dispatch = useDispatch();
+  return (
+    <TouchableOpacity style={{ marginRight: 15 }} onPress={() => dispatch(logout())}>
+      <MaterialCommunityIcons name="exit-to-app" size={24} color="red" />
+    </TouchableOpacity>
+  );
+}
 
-const AppNavigator = () => {
+export default function AppNavigator() {
+  const dispatch = useDispatch<AppDispatch>();
+  const user = useSelector((state: RootState) => state.auth.user);
+
+  useEffect(() => {
+    if (user) {
+      dispatch(fetchVehicles()); // Cargar vehiculos cuando user existe
+    }
+  }, [user]);
+
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Register" component={RegisterScreen} />
-        <Stack.Screen name="Home" component={HomeScreen} />
-        <Stack.Screen name="Vehicles" component={VehiclesScreen} />
-      </Stack.Navigator>
+      {user ? (
+        <Drawer.Navigator screenOptions={{ headerRight: () => <CustomLogoutButton /> }}>
+          <Drawer.Screen name="Inicio" component={HomeScreen} />
+          <Drawer.Screen name="Administrar Vehículos" component={VehiclesScreen} />
+          <Drawer.Screen name="Registrar Recorrido" component={RegisterRecorrido} />
+          <Drawer.Screen name="Recorridos" component={RecorridosScreen} />
+        </Drawer.Navigator>
+      ) : (
+        <Drawer.Navigator screenOptions={{ headerShown: false }}>
+          <Drawer.Screen name="Login" component={LoginScreen} />
+          <Drawer.Screen name="Register" component={RegisterScreen} />
+        </Drawer.Navigator>
+      )}
     </NavigationContainer>
   );
-};
-
-export default AppNavigator;
+}

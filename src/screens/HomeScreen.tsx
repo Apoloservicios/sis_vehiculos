@@ -1,79 +1,49 @@
 import React from "react";
-import { View, StyleSheet } from "react-native";
-import { Text, Button, Card } from "react-native-paper";
-import { auth } from "../../firebaseConfig";
-import { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
-type RootStackParamList = {
-  Login: undefined;
-  Register: undefined;
-  Home: undefined;
-  Vehicles: undefined;
-};
-
-type HomeScreenNavigationProp = NativeStackNavigationProp<RootStackParamList, "Home">;
-
-interface Props {
-  navigation: HomeScreenNavigationProp;
-}
-
-const HomeScreen: React.FC<Props> = ({ navigation }) => {
-  const user = useSelector((state: RootState) => state.auth.user) ?? { email: "", airport: "" };
-
-  const handleLogout = async () => {
-    await auth.signOut();
-    navigation.replace("Login");
-  };
+export default function HomeScreen({ navigation }) {
+  const user = useSelector((state: RootState) => state.auth.user);
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Bienvenido, {user?.email || "Usuario"}</Text>
+      <Text style={styles.title}>BIENVENIDO</Text>
+      <Text style={styles.subTitle}>{user?.email}</Text>
+      <Text style={styles.subTitle}>Aeropuerto: {user?.airport}</Text>
 
+      <TouchableOpacity
+        style={[styles.menuButton, { backgroundColor: "#7ED957" }]}
+        onPress={() => navigation.navigate("Recorridos")}
+      >
+        <MaterialCommunityIcons name="car" size={24} color="#fff" />
+        <Text style={styles.menuText}>Ir a Recorridos</Text>
+      </TouchableOpacity>
 
-      <Card style={styles.card}>
-      <Card.Title title="Gestión de Vehículos" subtitle={`Aeropuerto: ${user?.airport || "No definido"}`} />
-
-        <Card.Content>
-          <Text>Consulta y administra el estado de los vehículos.</Text>
-        </Card.Content>
-      </Card>
-
-      <Button mode="contained" onPress={() => navigation.navigate("Vehicles")} style={styles.button}>
-        Ver Vehículos
-      </Button>
-
-      <Button mode="contained" onPress={handleLogout} style={styles.button}>
-        Cerrar Sesión
-      </Button>
+      <TouchableOpacity
+        style={[styles.menuButton, { backgroundColor: "#34C6DA" }]}
+        onPress={() => navigation.navigate("Administrar Vehículos")}
+      >
+        <MaterialCommunityIcons name="menu" size={24} color="#fff" />
+        <Text style={styles.menuText}>Admin Vehículos</Text>
+      </TouchableOpacity>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
+  container: { flex: 1, justifyContent: "center", alignItems: "center" },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
+  subTitle: { fontSize: 16, marginBottom: 10 },
+  menuButton: {
+    flexDirection: "row",
+    borderRadius: 24,
+    padding: 15,
+    marginBottom: 20,
     alignItems: "center",
-    padding: 20,
-    backgroundColor: "#f4f4f4",
+    justifyContent: "center",
+    width: "70%",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 20,
-  },
-  card: {
-    width: "100%",
-    marginBottom: 20,
-    backgroundColor: "#ffffff",
-    elevation: 4,
-  },
-  button: {
-    marginTop: 10,
-    width: "100%",
-  },
+  menuText: { fontSize: 16, color: "#fff", marginLeft: 10 },
 });
-
-export default HomeScreen;
