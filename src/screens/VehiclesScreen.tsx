@@ -1,8 +1,22 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TextInput, FlatList, Alert, TouchableOpacity, Modal } from "react-native";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  FlatList,
+  Alert,
+  TouchableOpacity,
+  Modal
+} from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../redux/store";
-import { fetchVehicles, addVehicle, editVehicle, deleteVehicle } from "../redux/vehiclesSlice";
+import {
+  fetchVehicles,
+  addVehicle,
+  editVehicle,
+  deleteVehicle
+} from "../redux/vehiclesSlice";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 export default function VehiclesScreen() {
@@ -10,7 +24,7 @@ export default function VehiclesScreen() {
   const [modelo, setModelo] = useState("");
   const [ultimoKilometraje, setUltimoKilometraje] = useState("0");
 
-  // Para editar
+  // Estado para modal de edición
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [editDominio, setEditDominio] = useState("");
@@ -21,69 +35,88 @@ export default function VehiclesScreen() {
   const { list, loading, error } = useSelector((state: RootState) => state.vehicles);
   const user = useSelector((state: RootState) => state.auth.user);
 
+  // Cargar lista de vehicles si el user está listo
   useEffect(() => {
     if (user?.airport) {
       dispatch(fetchVehicles());
     }
   }, [dispatch, user]);
 
+  // Agregar vehículo
   const handleAdd = async () => {
     if (!dominio || !modelo) {
       Alert.alert("Error", "Completa dominio y modelo antes de agregar");
       return;
     }
-    await dispatch(addVehicle({
-      dominio,
-      modelo,
-      ultimo_kilometraje: Number(ultimoKilometraje),
-    }));
-    dispatch(fetchVehicles());
-    // Limpiar inputs
-    setDominio("");
-    setModelo("");
-    setUltimoKilometraje("0");
-  };
-
-  const handleDelete = async (id: string) => {
-    Alert.alert(
-      "Confirmar",
-      "¿Eliminar este vehículo?",
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Eliminar",
-          style: "destructive",
-          onPress: async () => {
-            await dispatch(deleteVehicle(id));
-            dispatch(fetchVehicles());
-          },
-        },
-      ]
+    const result = await dispatch(
+      addVehicle({
+        Dominio: dominio,
+        Modelo: modelo,
+        Ultimo_kilometraje: Number(ultimoKilometraje)
+      })
     );
-  };
-
-  const openEditModal = (vehId: string) => {
-    const vehicle = list.find((v) => v.id === vehId);
-    if (vehicle) {
-      setEditingVehicleId(vehicle.id);
-      setEditDominio(vehicle.dominio);
-      setEditModelo(vehicle.modelo);
-      setEditKM(vehicle.ultimo_kilometraje.toString());
-      setEditModalVisible(true);
+    if (addVehicle.fulfilled.match(result)) {
+      Alert.alert("Éxito", "Vehículo creado.");
+      dispatch(fetchVehicles());
+      // limpiar
+      setDominio("");
+      setModelo("");
+      setUltimoKilometraje("0");
+    } else {
+      Alert.alert("Error", result.payload as string);
     }
   };
 
+  // Eliminar vehículo (con confirmación)
+  const handleDelete = async (id: string) => {
+    Alert.alert("Confirmar", "¿Eliminar este vehículo?", [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Eliminar",
+        style: "destructive",
+        onPress: async () => {
+          const delRes = await dispatch(deleteVehicle(id));
+          if (deleteVehicle.fulfilled.match(delRes)) {
+            Alert.alert("Eliminado", "Vehículo borrado");
+            dispatch(fetchVehicles());
+          } else {
+            Alert.alert("Error", delRes.payload as string);
+          }
+        }
+      }
+    ]);
+  };
+
+  // Abrir modal de edición cargando los datos del vehículo
+  const openEditModal = (id: string) => {
+    const vehicle = list.find((v) => v.id === id);
+    if (!vehicle) return;
+    setEditingVehicleId(id);
+    setEditDominio(vehicle.Dominio);
+    setEditModelo(vehicle.Modelo);
+    setEditKM(vehicle.Ultimo_kilometraje.toString());
+    setEditModalVisible(true);
+  };
+
+  // Guardar cambios de edición
   const handleSaveEdit = async () => {
     if (!editingVehicleId) return;
-    await dispatch(editVehicle({
-      id: editingVehicleId,
-      dominio: editDominio,
-      modelo: editModelo,
-      ultimo_kilometraje: Number(editKM),
-      aeropuerto: user?.airport || "",
-    }));
-    setEditModalVisible(false);
-    dispatch(fetchVehicles());
+    const result = await dispatch(
+      editVehicle({
+        id: editingVehicleId,
+        Dominio: editDominio,
+        Modelo: editModelo,
+        Ultimo_kilometraje: Number(editKM),
+        Airport: user?.airport || ""
+      })
+    );
+    if (editVehicle.fulfilled.match(result)) {
+      Alert.alert("Éxito", "Vehículo editado");
+      setEditModalVisible(false);
+      dispatch(fetchVehicles());
+    } else {
+      Alert.alert("Error", result.payload as string);
+    }
   };
 
   return (
@@ -94,13 +127,14 @@ export default function VehiclesScreen() {
 
       {user?.airport ? (
         <>
+          {/* Form para agregar */}
           <View style={styles.form}>
-          <TextInput
-            style={styles.input}
-            placeholder="Dominio (ABC123)"
-            value={dominio}
-            onChangeText={(val) => setDominio(val.toUpperCase())}
-          />
+            <TextInput
+              style={styles.input}
+              placeholder="Dominio"
+              value={dominio}
+              onChangeText={(val) => setDominio(val.toUpperCase())}
+            />
             <TextInput
               style={styles.input}
               placeholder="Modelo"
@@ -120,6 +154,7 @@ export default function VehiclesScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* Lista de vehículos */}
           <FlatList
             data={list}
             keyExtractor={(item) => item.id}
@@ -127,11 +162,16 @@ export default function VehiclesScreen() {
             renderItem={({ item }) => (
               <View style={styles.item}>
                 <View style={styles.info}>
-                  <Text style={styles.infoText}>{item.dominio} - {item.modelo}</Text>
-                  <Text style={styles.infoText}>KM: {item.ultimo_kilometraje}</Text>
+                  <Text style={styles.infoText}>
+                    {item.Dominio} - {item.Modelo}
+                  </Text>
+                  <Text style={styles.infoText}>KM: {item.Ultimo_kilometraje}</Text>
                 </View>
                 <View style={styles.actions}>
-                  <TouchableOpacity style={{ marginRight: 10 }} onPress={() => openEditModal(item.id)}>
+                  <TouchableOpacity
+                    style={{ marginRight: 10 }}
+                    onPress={() => openEditModal(item.id)}
+                  >
                     <MaterialCommunityIcons name="pencil" size={24} color="#007AFF" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDelete(item.id)}>
@@ -142,16 +182,17 @@ export default function VehiclesScreen() {
             )}
           />
 
-          {/* MODAL PARA EDITAR VEHÍCULO */}
+          {/* MODAL para editar */}
           <Modal visible={editModalVisible} transparent={true} animationType="slide">
             <View style={styles.modalOverlay}>
               <View style={styles.modalContainer}>
                 <Text style={styles.modalTitle}>Editar Vehículo</Text>
+
                 <TextInput
                   style={styles.input}
                   placeholder="Dominio"
                   value={editDominio}
-                  onChangeText={ (val) => setEditDominio(val.toUpperCase())}
+                  onChangeText={(val) => setEditDominio(val.toUpperCase())}
                 />
                 <TextInput
                   style={styles.input}
@@ -166,11 +207,15 @@ export default function VehiclesScreen() {
                   onChangeText={setEditKM}
                   keyboardType="numeric"
                 />
+
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={styles.saveButton} onPress={handleSaveEdit}>
                     <Text style={styles.saveButtonText}>Guardar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelButton} onPress={() => setEditModalVisible(false)}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => setEditModalVisible(false)}
+                  >
                     <Text style={styles.cancelButtonText}>Cancelar</Text>
                   </TouchableOpacity>
                 </View>
@@ -237,17 +282,22 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginTop: 10,
   },
   saveButton: {
     backgroundColor: "#007AFF",
     padding: 10,
     borderRadius: 6,
+    minWidth: 80,
+    alignItems: "center",
   },
   saveButtonText: { color: "#fff" },
   cancelButton: {
     backgroundColor: "#ccc",
     padding: 10,
     borderRadius: 6,
+    minWidth: 80,
+    alignItems: "center",
   },
   cancelButtonText: { color: "#333" },
 });

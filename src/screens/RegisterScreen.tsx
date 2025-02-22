@@ -9,7 +9,7 @@ import { DrawerParamList } from "../navigation/types";
 
 type Props = DrawerScreenProps<DrawerParamList, "Register">;
 
-const airports = ["AFA", "LGS", "MDZ", "UAQ"];
+const airports = ["AFA", "MDZ","BRC","AEP","CRD","COR","EPA","EQS","EZE","FMA","GPO","IRJ","LGS","MDQ","PRA","JUJ","PSS","IGR","PRQ","RCQ","RES","RCU","RGL","RGA","SLA","FDO","CTC","UAQ","LUQ","TUC","RSA","SDE","RHD","VDM","VME"];
 
 export default function RegisterScreen({ navigation }: Props) {
   const [email, setEmail] = useState("");

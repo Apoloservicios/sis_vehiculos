@@ -7,8 +7,14 @@ import { useDispatch } from "react-redux";
 import { setUser } from "../redux/authSlice";
 import { doc, getDoc } from "firebase/firestore";
 import { Image } from "react-native";
+import { DrawerScreenProps } from "@react-navigation/drawer";
+import { DrawerParamList } from "../navigation/types";
+import HomeScreen from "./HomeScreen";
 
-export default function LoginScreen({ navigation }) {
+type Props = DrawerScreenProps<DrawerParamList, "Inicio">;
+
+
+export default function LoginScreen({ navigation }:Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const dispatch = useDispatch();

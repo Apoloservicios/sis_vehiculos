@@ -7,8 +7,12 @@ import { collection, query, where, orderBy, limit, getDocs } from "firebase/fire
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import { Picker } from "@react-native-picker/picker";
+import { DrawerScreenProps } from "@react-navigation/drawer";
+import { DrawerParamList } from "../navigation/types";
 
-export default function RecorridosScreen({ navigation }) {
+type Props = DrawerScreenProps<DrawerParamList, "Recorridos">;
+
+export default function RecorridosScreen({ navigation }: Props) {
   const [recorridos, setRecorridos] = useState<any[]>([]);
   const [selectedVehiculo, setSelectedVehiculo] = useState("all");
   const user = useSelector((state: RootState) => state.auth.user);
