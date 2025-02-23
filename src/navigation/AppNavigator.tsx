@@ -5,9 +5,13 @@ import { NavigationContainer } from "@react-navigation/native";
 import HomeScreen from "../screens/HomeScreen";
 import VehiclesScreen from "../screens/VehiclesScreen";
 import RegisterRecorrido from "../screens/RegisterRecorrido";
-import RecorridosScreen from "../screens/RecorridosScreen"; // Asegúrate de importarlo
+import RecorridosScreen from "../screens/RecorridosScreen";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
+
+// Importa la nueva pantalla
+import ReportesRecorridos from "../screens/ReportesRecorridos";
+
 import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "../redux/store";
 import { logout } from "../redux/authSlice";
@@ -32,7 +36,7 @@ export default function AppNavigator() {
 
   useEffect(() => {
     if (user) {
-      dispatch(fetchVehicles()); // Cargar vehiculos cuando user existe
+      dispatch(fetchVehicles()); // Cargar vehículos cuando user existe
     }
   }, [user]);
 
@@ -44,6 +48,9 @@ export default function AppNavigator() {
           <Drawer.Screen name="Administrar Vehículos" component={VehiclesScreen} />
           <Drawer.Screen name="Registrar Recorrido" component={RegisterRecorrido} />
           <Drawer.Screen name="Recorridos" component={RecorridosScreen} />
+
+          {/* Agregamos la nueva pantalla de reportes */}
+          <Drawer.Screen name="Reportes Recorridos" component={ReportesRecorridos} />
         </Drawer.Navigator>
       ) : (
         <Drawer.Navigator screenOptions={{ headerShown: false }}>
