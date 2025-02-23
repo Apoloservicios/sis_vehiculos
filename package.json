@@ -41,7 +41,8 @@
     "react-native-wheel-picker-expo": "^0.5.4",
     "react-redux": "^9.2.0",
     "redux": "^5.0.1",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "expo-updates": "~0.27.1"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
