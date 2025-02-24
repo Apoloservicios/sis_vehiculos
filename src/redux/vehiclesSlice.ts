@@ -3,24 +3,26 @@ import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { db } from "../../firebaseConfig";
 import {
   collection,
+  doc,
   getDocs,
+  query,
+  where,
   addDoc,
   updateDoc,
-  doc,
   deleteDoc,
-  query,
-  where
 } from "firebase/firestore";
 import { RootState } from "./store";
 
+// Definimos la interfaz del vehículo
 export interface Vehicle {
   id: string;
   Dominio: string;
   Modelo: string;
   Ultimo_kilometraje: number;
-  Airport: string;
+  Airport?: string; // si lo usas en la DB
 }
 
+// Interfaz del estado
 interface VehiclesState {
   list: Vehicle[];
   loading: boolean;
@@ -33,113 +35,137 @@ const initialState: VehiclesState = {
   error: null,
 };
 
-// Thunk para cargar vehículos
-export const fetchVehicles = createAsyncThunk(
+// 1) Thunk para obtener vehículos
+export const fetchVehicles = createAsyncThunk<
+  Vehicle[], // retorno exitoso
+  void,      // argumento que recibe la acción
+  { state: RootState; rejectValue: string }
+>(
   "vehicles/fetchVehicles",
   async (_, { getState, rejectWithValue }) => {
     try {
-      const state = getState() as RootState;
-      const airport = state.auth.user?.airport;
-      if (!airport) {
+      const state = getState();
+      const user = state.auth; // Leemos user de state.auth
+      if (!user.airport) {
         console.log("fetchVehicles: No airport en el usuario");
-        return [];
+        return rejectWithValue("No hay Airport en el usuario");
       }
-      console.log("fetchVehicles: Buscando vehiculos de airport=", airport);
 
-      const q = query(collection(db, "vehiculos"), where("Airport", "==", airport));
-      const snap = await getDocs(q);
-      const vehiclesList = snap.docs.map((d) => ({
-        id: d.id,
-        ...d.data(),
-      })) as Vehicle[];
-
-      console.log("fetchVehicles: vehiculos obtenidos =", vehiclesList);
-      return vehiclesList;
+      // Hacemos query a 'vehiculos' donde 'Airport' == user.airport
+      const q = query(
+        collection(db, "vehiculos"),
+        where("Airport", "==", user.airport)
+      );
+      const snapshot = await getDocs(q);
+      const data: Vehicle[] = [];
+      snapshot.forEach((docSnap) => {
+        data.push({
+          id: docSnap.id,
+          ...(docSnap.data() as Omit<Vehicle, "id">),
+        });
+      });
+      return data;
     } catch (error: any) {
-      console.error("fetchVehicles: error =", error);
-      return rejectWithValue("Error al obtener vehículos");
+      console.log("fetchVehicles error:", error);
+      return rejectWithValue(error.message || "Error desconocido en fetchVehicles");
     }
   }
 );
 
-// Thunk para agregar vehículo (con logs)
-export const addVehicle = createAsyncThunk(
+// 2) Thunk para agregar vehículo
+export const addVehicle = createAsyncThunk<
+  Vehicle, // retorno exitoso
+  { Dominio: string; Modelo: string; Ultimo_kilometraje: number }, // argumento
+  { state: RootState; rejectValue: string }
+>(
   "vehicles/addVehicle",
-  async (
-    { Dominio, Modelo, Ultimo_kilometraje }: Omit<Vehicle, "id" | "Airport">,
-    { getState, rejectWithValue }
-  ) => {
+  async (payload, { getState, rejectWithValue }) => {
     try {
-      const state = getState() as RootState;
-      const airport = state.auth.user?.airport;
-      if (!airport) throw new Error("No hay Airport en el usuario");
+      const state = getState();
+      const user = state.auth;
+      if (!user.airport) {
+        console.log("addVehicle: No airport en el usuario");
+        return rejectWithValue("No hay Airport en el usuario");
+      }
 
-      console.log("addVehicle: Creando vehiculo con:", {
-        Dominio,
-        Modelo,
-        Ultimo_kilometraje,
-        Airport: airport,
-      });
-
+      // Creamos el doc en 'vehiculos'
       const docRef = await addDoc(collection(db, "vehiculos"), {
-        Dominio,
-        Modelo,
-        Ultimo_kilometraje,
-        Airport: airport,
+        Dominio: payload.Dominio,
+        Modelo: payload.Modelo,
+        Ultimo_kilometraje: payload.Ultimo_kilometraje,
+        Airport: user.airport,
       });
-      console.log("addVehicle: Vehiculo creado con ID=", docRef.id);
-
-      return true;
+      // Retornamos un objeto Vehicle
+      return {
+        id: docRef.id,
+        Dominio: payload.Dominio,
+        Modelo: payload.Modelo,
+        Ultimo_kilometraje: payload.Ultimo_kilometraje,
+        Airport: user.airport,
+      };
     } catch (error: any) {
-      console.error("addVehicle: error al agregar vehículo:", error);
-      return rejectWithValue(error.message || "Error al agregar vehículo");
+      console.log("addVehicle error:", error);
+      return rejectWithValue(error.message || "Error desconocido al agregar vehículo");
     }
   }
 );
 
-// Thunk para editar vehículo (con logs)
-export const editVehicle = createAsyncThunk(
+// 3) Thunk para editar vehículo
+export const editVehicle = createAsyncThunk<
+  Vehicle,
+  {
+    id: string;
+    Dominio: string;
+    Modelo: string;
+    Ultimo_kilometraje: number;
+    Airport: string;
+  },
+  { state: RootState; rejectValue: string }
+>(
   "vehicles/editVehicle",
-  async ({ id, Dominio, Modelo, Ultimo_kilometraje, Airport }: Vehicle, { rejectWithValue }) => {
+  async (payload, { rejectWithValue }) => {
     try {
-      console.log("editVehicle: Editando vehiculo ID=", id, {
-        Dominio,
-        Modelo,
-        Ultimo_kilometraje,
-        Airport,
+      // Actualizamos en Firestore
+      await updateDoc(doc(db, "vehiculos", payload.id), {
+        Dominio: payload.Dominio,
+        Modelo: payload.Modelo,
+        Ultimo_kilometraje: payload.Ultimo_kilometraje,
+        Airport: payload.Airport,
       });
-      await updateDoc(doc(db, "vehiculos", id), {
-        Dominio,
-        Modelo,
-        Ultimo_kilometraje,
-        Airport,
-      });
-      console.log("editVehicle: Edición completada");
-      return true;
+      // Retornamos el objeto Vehicle
+      return {
+        id: payload.id,
+        Dominio: payload.Dominio,
+        Modelo: payload.Modelo,
+        Ultimo_kilometraje: payload.Ultimo_kilometraje,
+        Airport: payload.Airport,
+      };
     } catch (error: any) {
-      console.error("editVehicle: error al editar vehículo:", error);
-      return rejectWithValue(error.message || "Error al editar vehículo");
+      console.log("editVehicle error:", error);
+      return rejectWithValue(error.message || "Error desconocido al editar vehículo");
     }
   }
 );
 
-// Thunk para eliminar vehículo
-export const deleteVehicle = createAsyncThunk(
+// 4) Thunk para eliminar vehículo
+export const deleteVehicle = createAsyncThunk<
+  string,
+  string, // el id del vehículo
+  { rejectValue: string }
+>(
   "vehicles/deleteVehicle",
-  async (id: string, { rejectWithValue }) => {
+  async (vehicleId, { rejectWithValue }) => {
     try {
-      console.log("deleteVehicle: Eliminando vehiculo ID=", id);
-      await deleteDoc(doc(db, "vehiculos", id));
-      console.log("deleteVehicle: Eliminado OK");
-      return true;
+      await deleteDoc(doc(db, "vehiculos", vehicleId));
+      return vehicleId;
     } catch (error: any) {
-      console.error("deleteVehicle: error al eliminar vehículo:", error);
-      return rejectWithValue(error.message || "Error al eliminar vehículo");
+      console.log("deleteVehicle error:", error);
+      return rejectWithValue(error.message || "Error desconocido al eliminar vehículo");
     }
   }
 );
 
-const vehiclesSlice = createSlice({
+export const vehiclesSlice = createSlice({
   name: "vehicles",
   initialState,
   reducers: {},
@@ -149,9 +175,9 @@ const vehiclesSlice = createSlice({
       state.loading = true;
       state.error = null;
     });
-    builder.addCase(fetchVehicles.fulfilled, (state, action: PayloadAction<Vehicle[]>) => {
+    builder.addCase(fetchVehicles.fulfilled, (state, action) => {
       state.loading = false;
-      state.list = action.payload;
+      state.list = action.payload; // array de Vehicle
     });
     builder.addCase(fetchVehicles.rejected, (state, action) => {
       state.loading = false;
@@ -159,11 +185,52 @@ const vehiclesSlice = createSlice({
     });
 
     // addVehicle
-    builder.addCase(addVehicle.fulfilled, (state) => {});
+    builder.addCase(addVehicle.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(addVehicle.fulfilled, (state, action) => {
+      state.loading = false;
+      // Insertamos el vehículo retornado
+      state.list.push(action.payload);
+    });
+    builder.addCase(addVehicle.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload as string;
+    });
+
     // editVehicle
-    builder.addCase(editVehicle.fulfilled, (state) => {});
+    builder.addCase(editVehicle.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(editVehicle.fulfilled, (state, action) => {
+      state.loading = false;
+      // Reemplazamos en el array
+      const idx = state.list.findIndex((v) => v.id === action.payload.id);
+      if (idx !== -1) {
+        state.list[idx] = action.payload;
+      }
+    });
+    builder.addCase(editVehicle.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload as string;
+    });
+
     // deleteVehicle
-    builder.addCase(deleteVehicle.fulfilled, (state) => {});
+    builder.addCase(deleteVehicle.pending, (state) => {
+      state.loading = true;
+      state.error = null;
+    });
+    builder.addCase(deleteVehicle.fulfilled, (state, action) => {
+      state.loading = false;
+      // Eliminamos del array
+      state.list = state.list.filter((v) => v.id !== action.payload);
+    });
+    builder.addCase(deleteVehicle.rejected, (state, action) => {
+      state.loading = false;
+      state.error = action.payload as string;
+    });
   },
 });
 

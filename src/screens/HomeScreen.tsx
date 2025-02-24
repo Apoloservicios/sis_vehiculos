@@ -1,18 +1,25 @@
+// src/screens/HomeScreen.tsx
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { DrawerScreenProps } from "@react-navigation/drawer";
+import { DrawerParamList } from "../navigation/types";
 
-export default function HomeScreen({ navigation }) {
-  const user = useSelector((state: RootState) => state.auth.user);
+type Props = DrawerScreenProps<DrawerParamList, "Inicio">;
+
+export default function HomeScreen({ navigation }: Props) {
+  const user = useSelector((state: RootState) => state.auth);
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>BIENVENIDO</Text>
-      <Text style={styles.subTitle}>{user?.email}</Text>
-      <Text style={styles.subTitle}>Aeropuerto: {user?.airport}</Text>
+      <Text style={styles.subTitle}>{user.email}</Text>
+      <Text style={styles.subTitle}>Aeropuerto: {user.airport}</Text>
+      <Text style={styles.subTitle}>Rol: {user.role}</Text>
 
+      {/* Botón: Ir a Recorridos */}
       <TouchableOpacity
         style={[styles.menuButton, { backgroundColor: "#7ED957" }]}
         onPress={() => navigation.navigate("Recorridos")}
@@ -21,13 +28,34 @@ export default function HomeScreen({ navigation }) {
         <Text style={styles.menuText}>Ir a Recorridos</Text>
       </TouchableOpacity>
 
+      {/* Registrar Recorrido */}
+      <TouchableOpacity
+        style={[styles.menuButton, { backgroundColor: "#007AFF" }]}
+        onPress={() => navigation.navigate("Registrar Recorrido")}
+      >
+        <MaterialCommunityIcons name="plus" size={24} color="#fff" />
+        <Text style={styles.menuText}>Registrar Recorrido</Text>
+      </TouchableOpacity>
+
+      {/* Reportes Recorridos */}
       <TouchableOpacity
         style={[styles.menuButton, { backgroundColor: "#34C6DA" }]}
-        onPress={() => navigation.navigate("Administrar Vehículos")}
+        onPress={() => navigation.navigate("Reportes Recorridos")}
       >
-        <MaterialCommunityIcons name="menu" size={24} color="#fff" />
-        <Text style={styles.menuText}>Admin Vehículos</Text>
+        <MaterialCommunityIcons name="file-excel" size={24} color="#fff" />
+        <Text style={styles.menuText}>Reportes Recorridos</Text>
       </TouchableOpacity>
+
+      {/* Solo Admin ve "Administrar Vehículos" */}
+      {user.role === "admin" && (
+        <TouchableOpacity
+          style={[styles.menuButton, { backgroundColor: "#f0ad4e" }]}
+          onPress={() => navigation.navigate("Administrar Vehículos")}
+        >
+          <MaterialCommunityIcons name="menu" size={24} color="#fff" />
+          <Text style={styles.menuText}>Administrar Vehículos</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }

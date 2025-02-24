@@ -1,3 +1,4 @@
+// src/screens/VehiclesScreen.tsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -24,7 +25,6 @@ export default function VehiclesScreen() {
   const [modelo, setModelo] = useState("");
   const [ultimoKilometraje, setUltimoKilometraje] = useState("0");
 
-  // Estado para modal de edición
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [editDominio, setEditDominio] = useState("");
@@ -33,16 +33,15 @@ export default function VehiclesScreen() {
 
   const dispatch = useDispatch<AppDispatch>();
   const { list, loading, error } = useSelector((state: RootState) => state.vehicles);
-  const user = useSelector((state: RootState) => state.auth.user);
+  // Cambiar selector a state.auth (no state.auth.user)
+  const user = useSelector((state: RootState) => state.auth);
 
-  // Cargar lista de vehicles si el user está listo
   useEffect(() => {
-    if (user?.airport) {
+    if (user.airport) {
       dispatch(fetchVehicles());
     }
   }, [dispatch, user]);
 
-  // Agregar vehículo
   const handleAdd = async () => {
     if (!dominio || !modelo) {
       Alert.alert("Error", "Completa dominio y modelo antes de agregar");
@@ -58,7 +57,6 @@ export default function VehiclesScreen() {
     if (addVehicle.fulfilled.match(result)) {
       Alert.alert("Éxito", "Vehículo creado.");
       dispatch(fetchVehicles());
-      // limpiar
       setDominio("");
       setModelo("");
       setUltimoKilometraje("0");
@@ -67,7 +65,6 @@ export default function VehiclesScreen() {
     }
   };
 
-  // Eliminar vehículo (con confirmación)
   const handleDelete = async (id: string) => {
     Alert.alert("Confirmar", "¿Eliminar este vehículo?", [
       { text: "Cancelar", style: "cancel" },
@@ -87,7 +84,6 @@ export default function VehiclesScreen() {
     ]);
   };
 
-  // Abrir modal de edición cargando los datos del vehículo
   const openEditModal = (id: string) => {
     const vehicle = list.find((v) => v.id === id);
     if (!vehicle) return;
@@ -98,7 +94,6 @@ export default function VehiclesScreen() {
     setEditModalVisible(true);
   };
 
-  // Guardar cambios de edición
   const handleSaveEdit = async () => {
     if (!editingVehicleId) return;
     const result = await dispatch(
@@ -107,7 +102,7 @@ export default function VehiclesScreen() {
         Dominio: editDominio,
         Modelo: editModelo,
         Ultimo_kilometraje: Number(editKM),
-        Airport: user?.airport || ""
+        Airport: user.airport || ""
       })
     );
     if (editVehicle.fulfilled.match(result)) {
@@ -125,9 +120,8 @@ export default function VehiclesScreen() {
       {loading && <Text>Cargando...</Text>}
       {error && <Text style={{ color: "red" }}>{error}</Text>}
 
-      {user?.airport ? (
+      {user.airport ? (
         <>
-          {/* Form para agregar */}
           <View style={styles.form}>
             <TextInput
               style={styles.input}
@@ -154,7 +148,6 @@ export default function VehiclesScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Lista de vehículos */}
           <FlatList
             data={list}
             keyExtractor={(item) => item.id}
@@ -168,10 +161,7 @@ export default function VehiclesScreen() {
                   <Text style={styles.infoText}>KM: {item.Ultimo_kilometraje}</Text>
                 </View>
                 <View style={styles.actions}>
-                  <TouchableOpacity
-                    style={{ marginRight: 10 }}
-                    onPress={() => openEditModal(item.id)}
-                  >
+                  <TouchableOpacity style={{ marginRight: 10 }} onPress={() => openEditModal(item.id)}>
                     <MaterialCommunityIcons name="pencil" size={24} color="#007AFF" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDelete(item.id)}>
@@ -182,12 +172,10 @@ export default function VehiclesScreen() {
             )}
           />
 
-          {/* MODAL para editar */}
           <Modal visible={editModalVisible} transparent={true} animationType="slide">
             <View style={styles.modalOverlay}>
               <View style={styles.modalContainer}>
                 <Text style={styles.modalTitle}>Editar Vehículo</Text>
-
                 <TextInput
                   style={styles.input}
                   placeholder="Dominio"
@@ -207,15 +195,11 @@ export default function VehiclesScreen() {
                   onChangeText={setEditKM}
                   keyboardType="numeric"
                 />
-
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={styles.saveButton} onPress={handleSaveEdit}>
                     <Text style={styles.saveButtonText}>Guardar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.cancelButton}
-                    onPress={() => setEditModalVisible(false)}
-                  >
+                  <TouchableOpacity style={styles.cancelButton} onPress={() => setEditModalVisible(false)}>
                     <Text style={styles.cancelButtonText}>Cancelar</Text>
                   </TouchableOpacity>
                 </View>
@@ -233,71 +217,20 @@ export default function VehiclesScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
-  form: {
-    backgroundColor: "#f4f4f4",
-    padding: 10,
-    borderRadius: 6,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ccc",
-    marginBottom: 12,
-    padding: 8,
-    borderRadius: 4,
-  },
-  addButton: {
-    flexDirection: "row",
-    backgroundColor: "#007AFF",
-    borderRadius: 6,
-    padding: 10,
-    alignItems: "center",
-    marginBottom: 10,
-  },
+  form: { backgroundColor: "#f4f4f4", padding: 10, borderRadius: 6 },
+  input: { borderWidth: 1, borderColor: "#ccc", marginBottom: 12, padding: 8, borderRadius: 4 },
+  addButton: { flexDirection: "row", backgroundColor: "#007AFF", borderRadius: 6, padding: 10, alignItems: "center", marginBottom: 10 },
   addButtonText: { color: "#fff", marginLeft: 8 },
-  item: {
-    backgroundColor: "#fff",
-    padding: 10,
-    marginBottom: 8,
-    borderRadius: 6,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
+  item: { backgroundColor: "#fff", padding: 10, marginBottom: 8, borderRadius: 6, flexDirection: "row", justifyContent: "space-between" },
   info: {},
   infoText: { fontSize: 16 },
   actions: { flexDirection: "row", alignItems: "center" },
-  // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  modalContainer: {
-    backgroundColor: "#fff",
-    padding: 20,
-    borderRadius: 8,
-    width: "80%",
-  },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
+  modalContainer: { backgroundColor: "#fff", padding: 20, borderRadius: 8, width: "80%" },
   modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  modalActions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 10,
-  },
-  saveButton: {
-    backgroundColor: "#007AFF",
-    padding: 10,
-    borderRadius: 6,
-    minWidth: 80,
-    alignItems: "center",
-  },
+  modalActions: { flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
+  saveButton: { backgroundColor: "#007AFF", padding: 10, borderRadius: 6, minWidth: 80, alignItems: "center" },
   saveButtonText: { color: "#fff" },
-  cancelButton: {
-    backgroundColor: "#ccc",
-    padding: 10,
-    borderRadius: 6,
-    minWidth: 80,
-    alignItems: "center",
-  },
+  cancelButton: { backgroundColor: "#ccc", padding: 10, borderRadius: 6, minWidth: 80, alignItems: "center" },
   cancelButtonText: { color: "#333" },
 });

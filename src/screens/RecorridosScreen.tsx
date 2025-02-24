@@ -15,7 +15,8 @@ type Props = DrawerScreenProps<DrawerParamList, "Recorridos">;
 export default function RecorridosScreen({ navigation }: Props) {
   const [recorridos, setRecorridos] = useState<any[]>([]);
   const [selectedVehiculo, setSelectedVehiculo] = useState("all");
-  const user = useSelector((state: RootState) => state.auth.user);
+  // Cambiamos para leer de state.auth (no de state.auth.user)
+  const user = useSelector((state: RootState) => state.auth);
   const vehicles = useSelector((state: RootState) => state.vehicles.list);
 
   useEffect(() => {
@@ -23,7 +24,7 @@ export default function RecorridosScreen({ navigation }: Props) {
   }, [selectedVehiculo]);
 
   const fetchRecorridos = async () => {
-    if (!user?.airport) {
+    if (!user.airport) {
       Alert.alert("Error", "No tienes aeropuerto definido");
       return;
     }
@@ -33,10 +34,7 @@ export default function RecorridosScreen({ navigation }: Props) {
         where("Airport", "==", user.airport)
       );
       if (selectedVehiculo !== "all") {
-        qBase = query(
-          qBase,
-          where("Vehiculo", "==", selectedVehiculo)
-        );
+        qBase = query(qBase, where("Vehiculo", "==", selectedVehiculo));
       }
       const qFinal = query(qBase, orderBy("Fecha_fin", "desc"), limit(10));
       const snap = await getDocs(qFinal);
