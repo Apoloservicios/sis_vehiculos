@@ -39,9 +39,13 @@ export default function RegisterRecorrido({ navigation }) {
   const [kmFinal, setKmFinal] = useState("");
   const [observaciones, setObservaciones] = useState("");
 
+  // Nuevo: Nivel de combustible
+  const combustibleOptions = ["1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "1"];
+  const [nivelCombustible, setNivelCombustible] = useState("1/2");
+
   // Datos del store
   const vehicles = useSelector((state: RootState) => state.vehicles.list);
-  // Cambiar a state.auth (no state.auth.user)
+  // Usamos state.auth (no state.auth.user)
   const user = useSelector((state: RootState) => state.auth);
 
   const handleSelectVehicle = async (val: string) => {
@@ -66,7 +70,7 @@ export default function RegisterRecorrido({ navigation }) {
     }
   };
 
-  // Funciones para pickers de fecha/hora (se mantienen igual)
+  // Funciones para fecha/hora (se mantienen igual)
   const openDatePickerInicio = () => { setShowDatePickerInicio(true); };
   const openTimePickerInicio = () => { setShowTimePickerInicio(true); };
 
@@ -135,8 +139,7 @@ export default function RegisterRecorrido({ navigation }) {
       await addDoc(collection(db, "recorridos"), {
         Vehiculo: v.Dominio,
         Airport: user.airport || "",
-        // Agregamos el campo Usuario
-        Usuario: user.email || "Desconocido",
+        Usuario: user.email || "Desconocido", // Registramos el usuario que realizó el recorrido
         Fecha_inicio: fechaInicio,
         Hora_inicio: horaInicio,
         Kilometraje_inicial: Number(kmInicial),
@@ -144,6 +147,7 @@ export default function RegisterRecorrido({ navigation }) {
         Hora_fin: horaFin,
         Kilometraje_final: Number(kmFinal),
         Observaciones: observaciones,
+        Nivel_combustible: nivelCombustible, // Nuevo campo de combustible
       });
 
       await updateDoc(doc(db, "vehiculos", v.id), {
@@ -169,6 +173,7 @@ export default function RegisterRecorrido({ navigation }) {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Registrar Recorrido</Text>
 
+      {/* VEHÍCULO */}
       <Text style={styles.label}>Vehículo:</Text>
       <View style={styles.pickerContainer}>
         <Picker selectedValue={vehicleId} onValueChange={handleSelectVehicle} style={styles.picker}>
@@ -179,6 +184,7 @@ export default function RegisterRecorrido({ navigation }) {
         </Picker>
       </View>
 
+      {/* FECHA/HORA INICIO */}
       <Text style={styles.label}>Fecha/Hora Inicio</Text>
       <View style={styles.row}>
         <Text style={[styles.inputDateTime, { flex: 0.7 }]}>{fechaInicio} {horaInicio ? `${horaInicio} hs` : ""}</Text>
@@ -202,9 +208,11 @@ export default function RegisterRecorrido({ navigation }) {
         <DateTimePicker value={new Date()} mode="time" display="spinner" is24Hour={true} onChange={onChangeTimeInicio} />
       )}
 
+      {/* KM INICIAL */}
       <Text style={styles.label}>KM Inicial</Text>
       <TextInput style={styles.input} placeholder="15000" value={kmInicial} onChangeText={setKmInicial} keyboardType="numeric" />
 
+      {/* FECHA/HORA FIN */}
       <Text style={styles.label}>Fecha/Hora Fin</Text>
       <View style={styles.row}>
         <Text style={[styles.inputDateTime, { flex: 0.7 }]}>{fechaFin} {horaFin ? `${horaFin} hs` : ""}</Text>
@@ -228,12 +236,25 @@ export default function RegisterRecorrido({ navigation }) {
         <DateTimePicker value={new Date()} mode="time" display="spinner" is24Hour={true} onChange={onChangeTimeFin} />
       )}
 
+      {/* KM FINAL */}
       <Text style={styles.label}>KM Final</Text>
       <TextInput style={styles.input} placeholder="" value={kmFinal} onChangeText={setKmFinal} keyboardType="numeric" />
 
+      {/* OBSERVACIONES */}
       <Text style={styles.label}>Observaciones</Text>
       <TextInput style={styles.input} placeholder="Sin novedades" value={observaciones} onChangeText={setObservaciones} />
 
+      {/* NUEVO: Nivel de Combustible */}
+      <Text style={styles.label}>Nivel de Combustible:</Text>
+      <View style={styles.pickerContainer}>
+        <Picker selectedValue={nivelCombustible} onValueChange={(val) => setNivelCombustible(val)}>
+          {combustibleOptions.map((op) => (
+            <Picker.Item key={op} label={op} value={op} />
+          ))}
+        </Picker>
+      </View>
+
+      {/* BOTÓN GUARDAR */}
       <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
         <MaterialCommunityIcons name="content-save" size={24} color="#fff" />
         <Text style={styles.saveButtonText}> Guardar Recorrido</Text>
