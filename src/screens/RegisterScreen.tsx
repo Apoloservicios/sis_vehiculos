@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     margin: 20,
     borderRadius: 12,
     padding: 20,
-    marginTop: 40,
+    marginTop: 20,
   },
   title: { fontSize: 24, fontWeight: "bold", textAlign: "center", marginBottom: 20 },
   input: {

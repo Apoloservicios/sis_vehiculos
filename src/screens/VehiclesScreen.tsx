@@ -1,3 +1,5 @@
+
+import { useFocusEffect } from "@react-navigation/native"; // Importar
 // src/screens/VehiclesScreen.tsx
 import React, { useEffect, useState } from "react";
 import {
@@ -8,7 +10,7 @@ import {
   FlatList,
   Alert,
   TouchableOpacity,
-  Modal
+  Modal,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../redux/store";
@@ -16,25 +18,43 @@ import {
   fetchVehicles,
   addVehicle,
   editVehicle,
-  deleteVehicle
+  deleteVehicle,
 } from "../redux/vehiclesSlice";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { Picker } from "@react-native-picker/picker";
 
 export default function VehiclesScreen() {
   const [dominio, setDominio] = useState("");
   const [modelo, setModelo] = useState("");
   const [ultimoKilometraje, setUltimoKilometraje] = useState("0");
+  
+  // actualizar pantalla con el foco
 
+ 
+
+  // Combustible al agregar
+  const combustibleOptions = ["1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "1"];
+  const [combustible, setCombustible] = useState("1/2");
+
+  // Para editar en modal
   const [editModalVisible, setEditModalVisible] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [editDominio, setEditDominio] = useState("");
   const [editModelo, setEditModelo] = useState("");
   const [editKM, setEditKM] = useState("0");
+  const [editCombustible, setEditCombustible] = useState("1/2");
 
   const dispatch = useDispatch<AppDispatch>();
   const { list, loading, error } = useSelector((state: RootState) => state.vehicles);
-  // Cambiar selector a state.auth (no state.auth.user)
   const user = useSelector((state: RootState) => state.auth);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user.airport) {
+        dispatch(fetchVehicles());
+      }
+    }, [dispatch, user.airport])
+  );
 
   useEffect(() => {
     if (user.airport) {
@@ -51,7 +71,8 @@ export default function VehiclesScreen() {
       addVehicle({
         Dominio: dominio,
         Modelo: modelo,
-        Ultimo_kilometraje: Number(ultimoKilometraje)
+        Ultimo_kilometraje: Number(ultimoKilometraje),
+        Nivel_combustible: combustible,
       })
     );
     if (addVehicle.fulfilled.match(result)) {
@@ -60,6 +81,7 @@ export default function VehiclesScreen() {
       setDominio("");
       setModelo("");
       setUltimoKilometraje("0");
+      setCombustible("1/2");
     } else {
       Alert.alert("Error", result.payload as string);
     }
@@ -79,8 +101,8 @@ export default function VehiclesScreen() {
           } else {
             Alert.alert("Error", delRes.payload as string);
           }
-        }
-      }
+        },
+      },
     ]);
   };
 
@@ -91,6 +113,7 @@ export default function VehiclesScreen() {
     setEditDominio(vehicle.Dominio);
     setEditModelo(vehicle.Modelo);
     setEditKM(vehicle.Ultimo_kilometraje.toString());
+    setEditCombustible(vehicle.Nivel_combustible || "1/2");
     setEditModalVisible(true);
   };
 
@@ -102,7 +125,8 @@ export default function VehiclesScreen() {
         Dominio: editDominio,
         Modelo: editModelo,
         Ultimo_kilometraje: Number(editKM),
-        Airport: user.airport || ""
+        Airport: user.airport || "",
+        Nivel_combustible: editCombustible,
       })
     );
     if (editVehicle.fulfilled.match(result)) {
@@ -142,6 +166,18 @@ export default function VehiclesScreen() {
               onChangeText={setUltimoKilometraje}
               keyboardType="numeric"
             />
+            <Text style={styles.label}>Nivel de Combustible:</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={combustible}
+                onValueChange={(val) => setCombustible(val)}
+              >
+                {combustibleOptions.map((op) => (
+                  <Picker.Item key={op} label={op} value={op} />
+                ))}
+              </Picker>
+            </View>
+
             <TouchableOpacity style={styles.addButton} onPress={handleAdd}>
               <MaterialCommunityIcons name="plus-circle" size={24} color="#fff" />
               <Text style={styles.addButtonText}>Agregar Vehículo</Text>
@@ -159,9 +195,18 @@ export default function VehiclesScreen() {
                     {item.Dominio} - {item.Modelo}
                   </Text>
                   <Text style={styles.infoText}>KM: {item.Ultimo_kilometraje}</Text>
+                  <Text style={styles.infoText}>
+                    Combustible: {item.Nivel_combustible || "1/2"}
+                  </Text>
+                  <Text style={styles.infoText}>
+                    Bloqueado: {item.locked ? "Sí" : "No"}
+                  </Text>
                 </View>
                 <View style={styles.actions}>
-                  <TouchableOpacity style={{ marginRight: 10 }} onPress={() => openEditModal(item.id)}>
+                  <TouchableOpacity
+                    style={{ marginRight: 10 }}
+                    onPress={() => openEditModal(item.id)}
+                  >
                     <MaterialCommunityIcons name="pencil" size={24} color="#007AFF" />
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => handleDelete(item.id)}>
@@ -195,11 +240,26 @@ export default function VehiclesScreen() {
                   onChangeText={setEditKM}
                   keyboardType="numeric"
                 />
+                <Text style={styles.label}>Nivel de Combustible:</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={editCombustible}
+                    onValueChange={(val) => setEditCombustible(val)}
+                  >
+                    {combustibleOptions.map((op) => (
+                      <Picker.Item key={op} label={op} value={op} />
+                    ))}
+                  </Picker>
+                </View>
+
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={styles.saveButton} onPress={handleSaveEdit}>
                     <Text style={styles.saveButtonText}>Guardar</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.cancelButton} onPress={() => setEditModalVisible(false)}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => setEditModalVisible(false)}
+                  >
                     <Text style={styles.cancelButtonText}>Cancelar</Text>
                   </TouchableOpacity>
                 </View>
@@ -218,6 +278,14 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20 },
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 10 },
   form: { backgroundColor: "#f4f4f4", padding: 10, borderRadius: 6 },
+  label: { fontWeight: "600", marginTop: 8 },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 12,
+  },
   input: { borderWidth: 1, borderColor: "#ccc", marginBottom: 12, padding: 8, borderRadius: 4 },
   addButton: { flexDirection: "row", backgroundColor: "#007AFF", borderRadius: 6, padding: 10, alignItems: "center", marginBottom: 10 },
   addButtonText: { color: "#fff", marginLeft: 8 },
