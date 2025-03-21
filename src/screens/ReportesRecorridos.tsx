@@ -100,7 +100,7 @@ export default function ReportesRecorridos() {
     }
     try {
       const dataForSheet = recorridos.map((r) => ({
-        id: r.id,
+        // id: r.id,
         Usuario: r.Usuario || "",
         Vehiculo: r.Vehiculo || "",
         Airport: r.Airport || "",
@@ -114,10 +114,10 @@ export default function ReportesRecorridos() {
         Observaciones: r.Observaciones || "",
       }));
       dataForSheet.sort(
-        (a, b) => Number(b.Kilometraje_final) - Number(a.Kilometraje_final)
+        (a, b) => Number(a.Kilometraje_final) - Number(b.Kilometraje_final)
       );
       const headers = [
-        "id",
+        // "id",
         "Usuario",
         "Vehiculo",
         "Airport",

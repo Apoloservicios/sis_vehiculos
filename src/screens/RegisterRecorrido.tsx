@@ -1,4 +1,5 @@
 // src/screens/RegisterRecorrido.tsx
+
 import React, { useState } from "react";
 import {
   View,
@@ -12,69 +13,130 @@ import {
 import { useSelector } from "react-redux";
 import { RootState } from "../redux/store";
 import { db } from "../../firebaseConfig";
-import { collection, addDoc, updateDoc, doc, getDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  getDoc,
+} from "firebase/firestore";
 import { Picker } from "@react-native-picker/picker";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 export default function RegisterRecorrido({ navigation }) {
+  // Vehículo seleccionado
   const [vehicleId, setVehicleId] = useState("");
 
-  // Estados para pickers de INICIO
+  // Fechas/Horas
   const [showDatePickerInicio, setShowDatePickerInicio] = useState(false);
   const [showTimePickerInicio, setShowTimePickerInicio] = useState(false);
-
-  // Estados para pickers de FIN
   const [showDatePickerFin, setShowDatePickerFin] = useState(false);
   const [showTimePickerFin, setShowTimePickerFin] = useState(false);
 
-  // Fecha y hora en texto
   const [fechaInicio, setFechaInicio] = useState("");
   const [horaInicio, setHoraInicio] = useState("");
   const [fechaFin, setFechaFin] = useState("");
   const [horaFin, setHoraFin] = useState("");
 
-  // KM y Observaciones
+  // Kilometrajes
   const [kmInicial, setKmInicial] = useState("");
   const [kmFinal, setKmFinal] = useState("");
+
+  // Combustible
+  const combustibleOptions = ["1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "1"];
+  const [nivelCombustibleVehiculo, setNivelCombustibleVehiculo] = useState("");
+  const [nivelCombustibleRecorrido, setNivelCombustibleRecorrido] = useState("");
+
+  // Observaciones
+  const observationOptions = [
+    "Inspeccion de Area de Movimiento",
+    "Perimetral",
+    "Aviario",
+    "Control Fauna",
+    "Coordinaciones Locales",
+    "Gestiones fuera del aeropuerto",
+    "Combustible",
+    "Traslado de personal",
+    "Otro",
+  ];
+  const [selectedObservation, setSelectedObservation] = useState("");
   const [observaciones, setObservaciones] = useState("");
 
-  // Nuevo: Nivel de combustible
-  const combustibleOptions = ["1/8", "1/4", "3/8", "1/2", "5/8", "3/4", "7/8", "1"];
-  const [nivelCombustible, setNivelCombustible] = useState("1/2");
-
-  // Datos del store
+  // Datos de Redux
   const vehicles = useSelector((state: RootState) => state.vehicles.list);
-  // Usamos state.auth (no state.auth.user)
   const user = useSelector((state: RootState) => state.auth);
 
+  // 1) Cambiar de vehículo => desbloquea el anterior si lo habías bloqueado
   const handleSelectVehicle = async (val: string) => {
+    // Desbloquea el vehículo anterior si es distinto
+    if (vehicleId && vehicleId !== val) {
+      try {
+        const prevRef = doc(db, "vehiculos", vehicleId);
+        const prevSnap = await getDoc(prevRef);
+        if (prevSnap.exists()) {
+          const prevData = prevSnap.data();
+          // Solo lo desbloqueas si lockedBy == tu email
+          if (prevData.locked && prevData.lockedBy === user.email) {
+            await updateDoc(prevRef, { locked: false, lockedBy: null });
+          }
+        }
+      } catch (error) {
+        console.log("Error al desbloquear vehículo anterior:", error);
+      }
+    }
+
     setVehicleId(val);
     if (!val) {
+      // Limpia datos si no hay vehículo
       setKmInicial("");
+      setNivelCombustibleVehiculo("");
+      setNivelCombustibleRecorrido("");
       return;
     }
     try {
       const docRef = doc(db, "vehiculos", val);
       const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setKmInicial(String(data.Ultimo_kilometraje || 0));
-      } else {
-        console.log("No se encontró el documento de vehículo en Firestore");
+      if (!docSnap.exists()) {
+        console.log("No se encontró el documento del vehículo en Firestore");
         setKmInicial("");
+        setNivelCombustibleVehiculo("");
+        setNivelCombustibleRecorrido("");
+        return;
       }
+      const data = docSnap.data();
+      // Si está bloqueado por otro usuario => no permitir
+      if (data.locked && data.lockedBy !== user.email) {
+        Alert.alert("Atención", "El vehículo ya está en uso por otro usuario");
+        setVehicleId("");
+        setKmInicial("");
+        setNivelCombustibleVehiculo("");
+        setNivelCombustibleRecorrido("");
+        return;
+      }
+      // Si no está bloqueado => lo bloqueas
+      if (!data.locked) {
+        await updateDoc(docRef, {
+          locked: true,
+          lockedBy: user.email,
+        });
+      }
+      setKmInicial(String(data.Ultimo_kilometraje || 0));
+      setNivelCombustibleVehiculo(data.Nivel_combustible || "1/2");
+      setNivelCombustibleRecorrido(data.Nivel_combustible || "1/2");
     } catch (error) {
       console.log("Error al obtener datos de Firestore:", error);
       setKmInicial("");
+      setNivelCombustibleVehiculo("");
+      setNivelCombustibleRecorrido("");
     }
   };
 
-  // Funciones para fecha/hora (se mantienen igual)
-  const openDatePickerInicio = () => { setShowDatePickerInicio(true); };
-  const openTimePickerInicio = () => { setShowTimePickerInicio(true); };
+  // 2) Manejo de pickers de Fecha/Hora (inicio)
+  const openDatePickerInicio = () => setShowDatePickerInicio(true);
+  const openTimePickerInicio = () => setShowTimePickerInicio(true);
 
-  const onChangeDateInicio = (event: any, selectedDate: Date | undefined) => {
+  const onChangeDateInicio = (_: any, selectedDate?: Date) => {
     setShowDatePickerInicio(false);
     if (selectedDate) {
       const dia = String(selectedDate.getDate()).padStart(2, "0");
@@ -84,7 +146,7 @@ export default function RegisterRecorrido({ navigation }) {
     }
   };
 
-  const onChangeTimeInicio = (event: any, selectedTime: Date | undefined) => {
+  const onChangeTimeInicio = (_: any, selectedTime?: Date) => {
     setShowTimePickerInicio(false);
     if (selectedTime) {
       const hh = String(selectedTime.getHours()).padStart(2, "0");
@@ -93,13 +155,21 @@ export default function RegisterRecorrido({ navigation }) {
     }
   };
 
-  const clearInicio = () => { setFechaInicio(""); setHoraInicio(""); };
-  const setNowInicio = () => { const now = new Date(); onChangeDateInicio(null, now); onChangeTimeInicio(null, now); };
+  const clearInicio = () => {
+    setFechaInicio("");
+    setHoraInicio("");
+  };
+  const setNowInicio = () => {
+    const now = new Date();
+    onChangeDateInicio(null, now);
+    onChangeTimeInicio(null, now);
+  };
 
-  const openDatePickerFin = () => { setShowDatePickerFin(true); };
-  const openTimePickerFin = () => { setShowTimePickerFin(true); };
+  // 3) Manejo de pickers de Fecha/Hora (fin)
+  const openDatePickerFin = () => setShowDatePickerFin(true);
+  const openTimePickerFin = () => setShowTimePickerFin(true);
 
-  const onChangeDateFin = (event: any, selectedDate: Date | undefined) => {
+  const onChangeDateFin = (_: any, selectedDate?: Date) => {
     setShowDatePickerFin(false);
     if (selectedDate) {
       const dia = String(selectedDate.getDate()).padStart(2, "0");
@@ -109,7 +179,7 @@ export default function RegisterRecorrido({ navigation }) {
     }
   };
 
-  const onChangeTimeFin = (event: any, selectedTime: Date | undefined) => {
+  const onChangeTimeFin = (_: any, selectedTime?: Date) => {
     setShowTimePickerFin(false);
     if (selectedTime) {
       const hh = String(selectedTime.getHours()).padStart(2, "0");
@@ -118,11 +188,27 @@ export default function RegisterRecorrido({ navigation }) {
     }
   };
 
-  const clearFin = () => { setFechaFin(""); setHoraFin(""); };
-  const setNowFin = () => { const now = new Date(); onChangeDateFin(null, now); onChangeTimeFin(null, now); };
+  const clearFin = () => {
+    setFechaFin("");
+    setHoraFin("");
+  };
+  const setNowFin = () => {
+    const now = new Date();
+    onChangeDateFin(null, now);
+    onChangeTimeFin(null, now);
+  };
 
+  // 4) Guardar Recorrido
   const handleSave = async () => {
-    if (!vehicleId || !fechaInicio || !horaInicio || !fechaFin || !horaFin || !kmInicial || !kmFinal) {
+    if (
+      !vehicleId ||
+      !fechaInicio ||
+      !horaInicio ||
+      !fechaFin ||
+      !horaFin ||
+      !kmInicial ||
+      !kmFinal
+    ) {
       Alert.alert("Error", "Completa todos los campos");
       return;
     }
@@ -135,11 +221,13 @@ export default function RegisterRecorrido({ navigation }) {
       Alert.alert("Error", "Vehículo no encontrado");
       return;
     }
+
     try {
+      // 4.1) Guardar en 'recorridos'
       await addDoc(collection(db, "recorridos"), {
         Vehiculo: v.Dominio,
         Airport: user.airport || "",
-        Usuario: user.email || "Desconocido", // Registramos el usuario que realizó el recorrido
+        Usuario: user.email || "Desconocido",
         Fecha_inicio: fechaInicio,
         Hora_inicio: horaInicio,
         Kilometraje_inicial: Number(kmInicial),
@@ -147,15 +235,20 @@ export default function RegisterRecorrido({ navigation }) {
         Hora_fin: horaFin,
         Kilometraje_final: Number(kmFinal),
         Observaciones: observaciones,
-        Nivel_combustible: nivelCombustible, // Nuevo campo de combustible
+        Nivel_combustible: nivelCombustibleRecorrido,
       });
 
+      // 4.2) Actualizar vehículo: km, combustible, locked: false, lockedBy: null
       await updateDoc(doc(db, "vehiculos", v.id), {
         Ultimo_kilometraje: Number(kmFinal),
+        Nivel_combustible: nivelCombustibleRecorrido,
+        locked: false,
+        lockedBy: null,
       });
 
-      Alert.alert("Éxito", "Recorrido guardado y KM de vehículo actualizado");
+      Alert.alert("Éxito", "Recorrido guardado y vehículo actualizado");
 
+      // 4.3) Reseteamos campos
       setKmInicial(kmFinal);
       setFechaInicio("");
       setHoraInicio("");
@@ -163,6 +256,9 @@ export default function RegisterRecorrido({ navigation }) {
       setHoraFin("");
       setKmFinal("");
       setObservaciones("");
+      // Podrías deseleccionar el vehículo
+      // setVehicleId("");
+
     } catch (error) {
       console.error("Error al guardar Recorrido:", error);
       Alert.alert("Error", "No se pudo guardar el recorrido");
@@ -173,13 +269,21 @@ export default function RegisterRecorrido({ navigation }) {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Registrar Recorrido</Text>
 
-      {/* VEHÍCULO */}
+      {/* SELECCIÓN DE VEHÍCULO */}
       <Text style={styles.label}>Vehículo:</Text>
       <View style={styles.pickerContainer}>
-        <Picker selectedValue={vehicleId} onValueChange={handleSelectVehicle} style={styles.picker}>
+        <Picker
+          selectedValue={vehicleId}
+          onValueChange={handleSelectVehicle}
+          style={styles.picker}
+        >
           <Picker.Item label="-- Selecciona --" value="" />
           {vehicles.map((v) => (
-            <Picker.Item key={v.id} label={`${v.Dominio} - ${v.Modelo}`} value={v.id} />
+            <Picker.Item
+              key={v.id}
+              label={`${v.Dominio} - ${v.Modelo}`}
+              value={v.id}
+            />
           ))}
         </Picker>
       </View>
@@ -187,7 +291,9 @@ export default function RegisterRecorrido({ navigation }) {
       {/* FECHA/HORA INICIO */}
       <Text style={styles.label}>Fecha/Hora Inicio</Text>
       <View style={styles.row}>
-        <Text style={[styles.inputDateTime, { flex: 0.7 }]}>{fechaInicio} {horaInicio ? `${horaInicio} hs` : ""}</Text>
+        <Text style={[styles.inputDateTime, { flex: 0.7 }]}>
+          {fechaInicio} {horaInicio ? `${horaInicio} hs` : ""}
+        </Text>
         <TouchableOpacity style={styles.iconButton} onPress={clearInicio}>
           <MaterialCommunityIcons name="close-circle" size={24} color="red" />
         </TouchableOpacity>
@@ -202,20 +308,39 @@ export default function RegisterRecorrido({ navigation }) {
         </TouchableOpacity>
       </View>
       {showDatePickerInicio && (
-        <DateTimePicker value={new Date()} mode="date" display="spinner" onChange={onChangeDateInicio} />
+        <DateTimePicker
+          value={new Date()}
+          mode="date"
+          display="spinner"
+          onChange={onChangeDateInicio}
+        />
       )}
       {showTimePickerInicio && (
-        <DateTimePicker value={new Date()} mode="time" display="spinner" is24Hour={true} onChange={onChangeTimeInicio} />
+        <DateTimePicker
+          value={new Date()}
+          mode="time"
+          display="spinner"
+          is24Hour={true}
+          onChange={onChangeTimeInicio}
+        />
       )}
 
       {/* KM INICIAL */}
       <Text style={styles.label}>KM Inicial</Text>
-      <TextInput style={styles.input} placeholder="15000" value={kmInicial} onChangeText={setKmInicial} keyboardType="numeric" />
+      <TextInput
+        style={styles.input}
+        placeholder="15000"
+        value={kmInicial}
+        onChangeText={setKmInicial}
+        keyboardType="numeric"
+      />
 
       {/* FECHA/HORA FIN */}
       <Text style={styles.label}>Fecha/Hora Fin</Text>
       <View style={styles.row}>
-        <Text style={[styles.inputDateTime, { flex: 0.7 }]}>{fechaFin} {horaFin ? `${horaFin} hs` : ""}</Text>
+        <Text style={[styles.inputDateTime, { flex: 0.7 }]}>
+          {fechaFin} {horaFin ? `${horaFin} hs` : ""}
+        </Text>
         <TouchableOpacity style={styles.iconButton} onPress={clearFin}>
           <MaterialCommunityIcons name="close-circle" size={24} color="red" />
         </TouchableOpacity>
@@ -230,24 +355,67 @@ export default function RegisterRecorrido({ navigation }) {
         </TouchableOpacity>
       </View>
       {showDatePickerFin && (
-        <DateTimePicker value={new Date()} mode="date" display="spinner" onChange={onChangeDateFin} />
+        <DateTimePicker
+          value={new Date()}
+          mode="date"
+          display="spinner"
+          onChange={onChangeDateFin}
+        />
       )}
       {showTimePickerFin && (
-        <DateTimePicker value={new Date()} mode="time" display="spinner" is24Hour={true} onChange={onChangeTimeFin} />
+        <DateTimePicker
+          value={new Date()}
+          mode="time"
+          display="spinner"
+          is24Hour={true}
+          onChange={onChangeTimeFin}
+        />
       )}
 
       {/* KM FINAL */}
       <Text style={styles.label}>KM Final</Text>
-      <TextInput style={styles.input} placeholder="" value={kmFinal} onChangeText={setKmFinal} keyboardType="numeric" />
+      <TextInput
+        style={styles.input}
+        placeholder=""
+        value={kmFinal}
+        onChangeText={setKmFinal}
+        keyboardType="numeric"
+      />
 
-      {/* OBSERVACIONES */}
-      <Text style={styles.label}>Observaciones</Text>
-      <TextInput style={styles.input} placeholder="Sin novedades" value={observaciones} onChangeText={setObservaciones} />
+      {/* OBSERVACIONES (con Picker + input) */}
+      <Text style={styles.label}>Observaciones:</Text>
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={selectedObservation}
+          onValueChange={(val) => {
+            setSelectedObservation(val);
+            if (val !== "Otro" && val !== "") {
+              setObservaciones(val);
+            } else {
+              setObservaciones("");
+            }
+          }}
+        >
+          <Picker.Item label="-- Selecciona --" value="" />
+          {observationOptions.map((op) => (
+            <Picker.Item key={op} label={op} value={op} />
+          ))}
+        </Picker>
+      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Escribe observaciones o modifica la opción elegida"
+        value={observaciones}
+        onChangeText={setObservaciones}
+      />
 
-      {/* NUEVO: Nivel de Combustible */}
+      {/* NIVEL DE COMBUSTIBLE */}
       <Text style={styles.label}>Nivel de Combustible:</Text>
       <View style={styles.pickerContainer}>
-        <Picker selectedValue={nivelCombustible} onValueChange={(val) => setNivelCombustible(val)}>
+        <Picker
+          selectedValue={nivelCombustibleRecorrido}
+          onValueChange={(val) => setNivelCombustibleRecorrido(val)}
+        >
           {combustibleOptions.map((op) => (
             <Picker.Item key={op} label={op} value={op} />
           ))}
@@ -267,12 +435,43 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#F4F4F4" },
   title: { fontSize: 22, fontWeight: "bold", marginBottom: 15 },
   label: { marginTop: 10, fontWeight: "600" },
-  pickerContainer: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, overflow: "hidden", marginBottom: 10 },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    overflow: "hidden",
+    marginBottom: 10,
+  },
   picker: { width: "100%" },
-  row: { flexDirection: "row", alignItems: "center", marginBottom: 10 },
-  inputDateTime: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, padding: 8, marginRight: 6, textAlign: "center" },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  inputDateTime: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    padding: 8,
+    marginRight: 6,
+    textAlign: "center",
+  },
   iconButton: { padding: 6 },
-  input: { borderWidth: 1, borderColor: "#ccc", borderRadius: 6, padding: 8, marginBottom: 10 },
-  saveButton: { flexDirection: "row", backgroundColor: "#007AFF", borderRadius: 6, padding: 12, alignItems: "center", justifyContent: "center", marginTop: 20 },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ccc",
+    borderRadius: 6,
+    padding: 8,
+    marginBottom: 10,
+  },
+  saveButton: {
+    flexDirection: "row",
+    backgroundColor: "#007AFF",
+    borderRadius: 6,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 20,
+  },
   saveButtonText: { color: "#fff", marginLeft: 8, fontSize: 16 },
 });

@@ -103,7 +103,7 @@ export default function LoginScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   bg: { flex: 1, width: "100%", height: "100%" },
   overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.2)" },
-  logoContainer: { alignItems: "center", marginTop: 60 },
+  logoContainer: { alignItems: "center", marginTop: 0 },
   logo: {
     width: 175,
     height: 175,
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
     margin: 20,
     borderRadius: 12,
     padding: 20,
-    marginTop: 100,
+    marginTop: 80,
   },
   label: { fontWeight: "bold", marginTop: 10 },
   input: {
