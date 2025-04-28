@@ -13,14 +13,28 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Necesitamos acceso a tu ubicación para registrar los recorridos de vehículos",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Necesitamos acceso a tu ubicación para registrar los recorridos de vehículos"
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.aptincho.SIS_VEHICULOS"
+      "package": "com.aptincho.SIS_VEHICULOS",
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "YOUR_GOOGLE_MAPS_API_KEY"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,6 +49,14 @@
     },
     "updates": {
       "url": "https://u.expo.dev/7ddff84d-0c00-4507-9c4d-4385eea81ada"
-    }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permitir a SIS_VEHICULOS acceder a tu ubicación para registrar recorridos GPS"
+        }
+      ]
+    ]
   }
 }

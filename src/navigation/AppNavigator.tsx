@@ -7,6 +7,8 @@ import VehiclesScreen from "../screens/VehiclesScreen";
 import RegisterRecorrido from "../screens/RegisterRecorrido";
 import RecorridosScreen from "../screens/RecorridosScreen";
 import ReportesRecorridos from "../screens/ReportesRecorridos";
+import GPSRecorridoScreen from "../screens/GPSRecorridoScreen";
+import RecorridoDetailScreen from "../screens/RecorridoDetailScreen";
 import LoginScreen from "../screens/LoginScreen";
 import RegisterScreen from "../screens/RegisterScreen";
 import ObservationsManagementScreen from "../screens/ObservationsManagementScreen";
@@ -18,19 +20,6 @@ import { fetchVehicles } from "../redux/vehiclesSlice";
 import { TouchableOpacity } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { DrawerParamList } from "./types";
-
-// Actualizar tipos en types.ts
-// export type DrawerParamList = {
-//   Inicio: undefined;
-//   Login: undefined;
-//   Register: undefined;
-//   Recorridos: undefined;
-//   "Administrar Vehículos": undefined;
-//   "Registrar Recorrido": undefined;
-//   "Reportes Recorridos": undefined;
-//   "Gestión de Observaciones": undefined;
-//   "Gestión de Usuarios": undefined;
-// };
 
 const Drawer = createDrawerNavigator<DrawerParamList>();
 
@@ -57,7 +46,7 @@ export default function AppNavigator() {
     <NavigationContainer>
       {user.uid ? (
         user.role === "admin" ? (
-          // Drawer para ADMIN (actualizado con nuevas pantallas)
+          // Drawer para ADMIN
           <Drawer.Navigator
             initialRouteName="Inicio"
             screenOptions={{
@@ -67,13 +56,21 @@ export default function AppNavigator() {
             <Drawer.Screen name="Inicio" component={HomeScreen} />
             <Drawer.Screen name="Administrar Vehículos" component={VehiclesScreen} />
             <Drawer.Screen name="Registrar Recorrido" component={RegisterRecorrido} />
+            <Drawer.Screen name="Recorrido GPS" component={GPSRecorridoScreen} />
             <Drawer.Screen name="Recorridos" component={RecorridosScreen} />
+            <Drawer.Screen 
+              name="Recorrido Detalle" 
+              component={RecorridoDetailScreen} 
+              options={{ 
+                drawerItemStyle: { display: 'none' } // Ocultar en el drawer
+              }}
+            />
             <Drawer.Screen name="Reportes Recorridos" component={ReportesRecorridos} />
             <Drawer.Screen name="Gestión de Observaciones" component={ObservationsManagementScreen} />
             <Drawer.Screen name="Gestión de Usuarios" component={UsersManagementScreen} />
           </Drawer.Navigator>
         ) : (
-          // Drawer para USER (sin cambios)
+          // Drawer para USER
           <Drawer.Navigator
             initialRouteName="Inicio"
             screenOptions={{
@@ -82,12 +79,20 @@ export default function AppNavigator() {
           >
             <Drawer.Screen name="Inicio" component={HomeScreen} />
             <Drawer.Screen name="Registrar Recorrido" component={RegisterRecorrido} />
+            <Drawer.Screen name="Recorrido GPS" component={GPSRecorridoScreen} />
             <Drawer.Screen name="Recorridos" component={RecorridosScreen} />
+            <Drawer.Screen 
+              name="Recorrido Detalle" 
+              component={RecorridoDetailScreen}
+              options={{ 
+                drawerItemStyle: { display: 'none' } // Ocultar en el drawer
+              }}
+            />
             <Drawer.Screen name="Reportes Recorridos" component={ReportesRecorridos} />
           </Drawer.Navigator>
         )
       ) : (
-        // Drawer para NO LOGUEADO (sin cambios)
+        // Drawer para NO LOGUEADO
         <Drawer.Navigator screenOptions={{ headerShown: false }}>
           <Drawer.Screen name="Login" component={LoginScreen} />
           <Drawer.Screen name="Register" component={RegisterScreen} />

@@ -28,13 +28,22 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.menuText}>Ir a Recorridos</Text>
       </TouchableOpacity>
 
-      {/* Registrar Recorrido */}
+      {/* Registrar Recorrido Manual */}
       <TouchableOpacity
         style={[styles.menuButton, { backgroundColor: "#007AFF" }]}
         onPress={() => navigation.navigate("Registrar Recorrido")}
       >
         <MaterialCommunityIcons name="plus" size={24} color="#fff" />
-        <Text style={styles.menuText}>Registrar Recorrido</Text>
+        <Text style={styles.menuText}>Registrar Recorrido Manual</Text>
+      </TouchableOpacity>
+      
+      {/* Nuevo: Recorrido GPS */}
+      <TouchableOpacity
+        style={[styles.menuButton, { backgroundColor: "#FF9800" }]}
+        onPress={() => navigation.navigate("Recorrido GPS")}
+      >
+        <MaterialCommunityIcons name="map-marker-path" size={24} color="#fff" />
+        <Text style={styles.menuText}>Registrar Recorrido GPS</Text>
       </TouchableOpacity>
 
       {/* Reportes Recorridos */}
@@ -66,7 +75,7 @@ export default function HomeScreen({ navigation }: Props) {
           </TouchableOpacity>
           
           <TouchableOpacity
-            style={[styles.menuButton, { backgroundColor: "#FF9800" }]}
+            style={[styles.menuButton, { backgroundColor: "#FF5722" }]}
             onPress={() => navigation.navigate("Gestión de Usuarios")}
           >
             <MaterialCommunityIcons name="account-group" size={24} color="#fff" />
