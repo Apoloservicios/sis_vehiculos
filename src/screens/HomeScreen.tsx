@@ -1,4 +1,4 @@
-// src/screens/HomeScreen.tsx
+// src/screens/HomeScreen.tsx (modificado)
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useSelector } from "react-redux";
@@ -46,32 +46,55 @@ export default function HomeScreen({ navigation }: Props) {
         <Text style={styles.menuText}>Reportes Recorridos</Text>
       </TouchableOpacity>
 
-      {/* Solo Admin ve "Administrar Vehículos" */}
+      {/* Solo Admin ve estas opciones */}
       {user.role === "admin" && (
-        <TouchableOpacity
-          style={[styles.menuButton, { backgroundColor: "#f0ad4e" }]}
-          onPress={() => navigation.navigate("Administrar Vehículos")}
-        >
-          <MaterialCommunityIcons name="menu" size={24} color="#fff" />
-          <Text style={styles.menuText}>Administrar Vehículos</Text>
-        </TouchableOpacity>
+        <>
+          <TouchableOpacity
+            style={[styles.menuButton, { backgroundColor: "#f0ad4e" }]}
+            onPress={() => navigation.navigate("Administrar Vehículos")}
+          >
+            <MaterialCommunityIcons name="car-cog" size={24} color="#fff" />
+            <Text style={styles.menuText}>Administrar Vehículos</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.menuButton, { backgroundColor: "#9C27B0" }]}
+            onPress={() => navigation.navigate("Gestión de Observaciones")}
+          >
+            <MaterialCommunityIcons name="format-list-checkbox" size={24} color="#fff" />
+            <Text style={styles.menuText}>Gestionar Observaciones</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[styles.menuButton, { backgroundColor: "#FF9800" }]}
+            onPress={() => navigation.navigate("Gestión de Usuarios")}
+          >
+            <MaterialCommunityIcons name="account-group" size={24} color="#fff" />
+            <Text style={styles.menuText}>Gestionar Usuarios</Text>
+          </TouchableOpacity>
+        </>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", alignItems: "center" },
+  container: { flex: 1, justifyContent: "center", alignItems: "center", padding: 20 },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 10 },
   subTitle: { fontSize: 16, marginBottom: 10 },
   menuButton: {
     flexDirection: "row",
     borderRadius: 24,
     padding: 15,
-    marginBottom: 20,
+    marginBottom: 16,
     alignItems: "center",
     justifyContent: "center",
-    width: "70%",
+    width: "85%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
-  menuText: { fontSize: 16, color: "#fff", marginLeft: 10 },
+  menuText: { fontSize: 16, color: "#fff", marginLeft: 10, fontWeight: "500" },
 });

@@ -18,9 +18,10 @@ export interface Vehicle {
   Dominio: string;
   Modelo: string;
   Ultimo_kilometraje: number;
-  Nivel_combustible?: string; // Nuevo campo
+  Nivel_combustible?: string;
   Airport?: string;
-  locked?: boolean; // Para manejar bloqueo
+  locked?: boolean;
+  lockedBy?: string | null; // Añadimos esta propiedad
 }
 
 interface VehiclesState {

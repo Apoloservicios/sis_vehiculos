@@ -6,4 +6,6 @@ export type DrawerParamList = {
   "Administrar Vehículos": undefined;
   "Registrar Recorrido": undefined;
   "Reportes Recorridos": undefined;
-  };
+  "Gestión de Observaciones": undefined;
+  "Gestión de Usuarios": undefined;
+};

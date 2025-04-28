@@ -23,6 +23,19 @@ import {
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Picker } from "@react-native-picker/picker";
 
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDoc,
+  query,
+  where,
+  getDocs,
+} from "firebase/firestore";
+import { db } from "../../firebaseConfig";
+
 export default function VehiclesScreen() {
   const [dominio, setDominio] = useState("");
   const [modelo, setModelo] = useState("");
@@ -86,6 +99,37 @@ export default function VehiclesScreen() {
       Alert.alert("Error", result.payload as string);
     }
   };
+
+  // Agregamos una nueva función para desbloquear vehículos
+const handleUnlockVehicle = async (id: string) => {
+  try {
+    const vehicleRef = doc(db, "vehiculos", id);
+    const vehicleSnap = await getDoc(vehicleRef);
+    
+    if (!vehicleSnap.exists()) {
+      Alert.alert("Error", "Vehículo no encontrado");
+      return;
+    }
+    
+    const vehicleData = vehicleSnap.data();
+    
+    if (!vehicleData.locked) {
+      Alert.alert("Información", "El vehículo ya está desbloqueado");
+      return;
+    }
+    
+    await updateDoc(vehicleRef, {
+      locked: false,
+      lockedBy: null
+    });
+    
+    Alert.alert("Éxito", "Vehículo desbloqueado correctamente");
+    dispatch(fetchVehicles()); // Recargar la lista
+  } catch (error) {
+    console.error("Error al desbloquear vehículo:", error);
+    Alert.alert("Error", "No se pudo desbloquear el vehículo");
+  }
+};
 
   const handleDelete = async (id: string) => {
     Alert.alert("Confirmar", "¿Eliminar este vehículo?", [
@@ -198,11 +242,25 @@ export default function VehiclesScreen() {
                   <Text style={styles.infoText}>
                     Combustible: {item.Nivel_combustible || "1/2"}
                   </Text>
-                  <Text style={styles.infoText}>
-                    Bloqueado: {item.locked ? "Sí" : "No"}
+                  <Text style={[
+                    styles.infoText, 
+                    item.locked ? styles.lockedText : styles.unlockedText
+                  ]}>
+                    {item.locked 
+                      ? `Bloqueado por: ${item.lockedBy || "Desconocido"}` 
+                      : "Desbloqueado"
+                    }
                   </Text>
                 </View>
                 <View style={styles.actions}>
+                  {item.locked && (
+                    <TouchableOpacity
+                      style={{ marginRight: 10 }}
+                      onPress={() => handleUnlockVehicle(item.id)}
+                    >
+                      <MaterialCommunityIcons name="lock-open" size={24} color="#FF9800" />
+                    </TouchableOpacity>
+                  )}
                   <TouchableOpacity
                     style={{ marginRight: 10 }}
                     onPress={() => openEditModal(item.id)}
@@ -289,10 +347,9 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: "#ccc", marginBottom: 12, padding: 8, borderRadius: 4 },
   addButton: { flexDirection: "row", backgroundColor: "#007AFF", borderRadius: 6, padding: 10, alignItems: "center", marginBottom: 10 },
   addButtonText: { color: "#fff", marginLeft: 8 },
-  item: { backgroundColor: "#fff", padding: 10, marginBottom: 8, borderRadius: 6, flexDirection: "row", justifyContent: "space-between" },
-  info: {},
-  infoText: { fontSize: 16 },
-  actions: { flexDirection: "row", alignItems: "center" },
+ 
+
+  
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center" },
   modalContainer: { backgroundColor: "#fff", padding: 20, borderRadius: 8, width: "80%" },
   modalTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
@@ -301,4 +358,50 @@ const styles = StyleSheet.create({
   saveButtonText: { color: "#fff" },
   cancelButton: { backgroundColor: "#ccc", padding: 10, borderRadius: 6, minWidth: 80, alignItems: "center" },
   cancelButtonText: { color: "#333" },
+
+   item: { 
+    backgroundColor: "#fff", 
+    padding: 15, 
+    marginBottom: 8, 
+    borderRadius: 6, 
+    flexDirection: "row", 
+    justifyContent: "space-between",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  info: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  infoText: { 
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  lockedText: {
+    color: "red",
+    fontWeight: "bold"
+  },
+  unlockedText: {
+    color: "green",
+    fontWeight: "bold"
+  },
+  actions: { 
+    flexDirection: "row", 
+    alignItems: "center",
+    justifyContent: "flex-end",
+    marginLeft: 10,
+  },
+  actionButton: {
+    width: 40,
+    height: 40, 
+    justifyContent: "center",
+    alignItems: "center",
+    marginLeft: 4,
+  },
+
+
+
 });
