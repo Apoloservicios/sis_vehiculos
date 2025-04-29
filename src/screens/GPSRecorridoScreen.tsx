@@ -96,6 +96,7 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
   const requestLocationPermission = async () => {
     setLoadingLocation(true);
     try {
+      
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
