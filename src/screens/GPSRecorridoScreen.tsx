@@ -1,4 +1,4 @@
-// src/screens/GPSRecorridoScreen.tsx
+// src/screens/GPSRecorridoScreen.tsx (mejorado)
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -28,23 +28,15 @@ import * as Location from "expo-location";
 import { DrawerScreenProps } from "@react-navigation/drawer";
 import { DrawerParamList } from "../navigation/types";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
+import { 
+  calculateDistance, 
+  isValidLocation, 
+  getSmoothPath, 
+  KalmanFilter,
+  LocationPoint 
+} from "../utils/GPSUtils";
 
 type Props = DrawerScreenProps<DrawerParamList, "Recorrido GPS">;
-
-// Interfaces
-interface ILocation {
-  latitude: number;
-  longitude: number;
-  timestamp: number;
-}
-
-interface IVehicle {
-  id: string;
-  Dominio: string;
-  Modelo: string;
-  Ultimo_kilometraje: number;
-  Nivel_combustible?: string;
-}
 
 // Constantes
 const { width, height } = Dimensions.get("window");
@@ -57,7 +49,7 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
   const [vehicleId, setVehicleId] = useState("");
   const [kmInicial, setKmInicial] = useState("");
   const [recording, setRecording] = useState(false);
-  const [locations, setLocations] = useState<ILocation[]>([]);
+  const [locations, setLocations] = useState<LocationPoint[]>([]);
   const [currentLocation, setCurrentLocation] = useState<Location.LocationObject | null>(null);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [endTime, setEndTime] = useState<Date | null>(null);
@@ -73,6 +65,7 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
   // Referencias
   const mapRef = useRef<MapView>(null);
   const locationSubscription = useRef<any>(null);
+  const kalmanFilter = useRef(new KalmanFilter());
   
   // Datos de Redux
   const vehicles = useSelector((state: RootState) => state.vehicles.list);
@@ -96,24 +89,43 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
   const requestLocationPermission = async () => {
     setLoadingLocation(true);
     try {
+      // Primero, solicitamos permisos de ubicación en primer plano
+      const foregroundPermission = await Location.requestForegroundPermissionsAsync();
       
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
+      if (foregroundPermission.status !== "granted") {
         Alert.alert(
           "Permiso denegado",
           "Necesitamos acceso a la ubicación para registrar el recorrido GPS",
           [{ text: "OK", onPress: () => navigation.goBack() }]
         );
         setHasLocationPermission(false);
+        setLoadingLocation(false);
         return;
+      }
+      
+      // Si estamos en Android y queremos acceso en segundo plano (opcional)
+      if (Platform.OS === 'android') {
+        const backgroundPermission = await Location.requestBackgroundPermissionsAsync();
+        console.log("Background permission status:", backgroundPermission.status);
+        // Aún si el permiso en segundo plano es denegado, podemos continuar
       }
       
       setHasLocationPermission(true);
       
-      // Obtener ubicación actual
+      // Configurar la precisión
+      await Location.setGoogleApiKey("AIzaSyCA0yqi3amsoHfQ-TK3N4tnLoyAwd6F5Zs"); // Reemplaza con tu API key
+      
+      // Obtener ubicación actual con configuración de alta precisión
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High
+        accuracy: Location.Accuracy.BestForNavigation
       });
+      
+      console.log("Ubicación actual obtenida:", {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        accuracy: location.coords.accuracy
+      });
+      
       setCurrentLocation(location);
       
       // Centrar mapa en la ubicación actual
@@ -132,6 +144,7 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
       setLoadingLocation(false);
     }
   };
+  
   // Desbloquear vehículo
   const unlockVehicle = async (id: string) => {
     try {
@@ -199,6 +212,75 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
     }
   };
   
+  // Función mejorada para procesar nuevas ubicaciones
+  const processNewLocation = (location: Location.LocationObject) => {
+    // Aplicar filtro Kalman para suavizar las coordenadas
+    const filtered = kalmanFilter.current.filter(
+      location.coords.latitude,
+      location.coords.longitude,
+      location.coords.accuracy || 10
+    );
+    
+    // Crear objeto de ubicación con datos adicionales útiles
+    const newLocation: LocationPoint = {
+      latitude: filtered.latitude,
+      longitude: filtered.longitude,
+      timestamp: location.timestamp,
+      accuracy: location.coords.accuracy,
+      speed: location.coords.speed,
+      heading: location.coords.heading
+    };
+    
+    // Actualizar ubicación actual para el marcador
+    setCurrentLocation(location);
+    
+    // Agregar ubicación a la lista si es válida
+    setLocations(prevLocations => {
+      // Verificar si el punto es válido 
+      if (!isValidLocation(newLocation, prevLocations)) {
+        console.log("Punto filtrado por no ser válido");
+        return prevLocations; // No agregar este punto
+      }
+      
+      const updatedLocations = [...prevLocations, newLocation];
+      
+      // Calcular distancia si hay al menos 2 puntos
+      if (updatedLocations.length >= 2) {
+        const lastIdx = updatedLocations.length - 1;
+        const prevCoord = updatedLocations[lastIdx - 1];
+        const newCoord = updatedLocations[lastIdx];
+        
+        const segmentDistance = calculateDistance(
+          prevCoord.latitude, prevCoord.longitude,
+          newCoord.latitude, newCoord.longitude
+        );
+        
+        setDistance(prevDistance => prevDistance + segmentDistance);
+      }
+      
+      return updatedLocations;
+    });
+    
+    // Actualizar la región del mapa de manera más robusta
+    if (mapRef.current) {
+      try {
+        const region = {
+          latitude: filtered.latitude,
+          longitude: filtered.longitude,
+          latitudeDelta: LATITUDE_DELTA,
+          longitudeDelta: LONGITUDE_DELTA
+        };
+        
+        // Usa requestAnimationFrame para evitar problemas de renderizado
+        requestAnimationFrame(() => {
+          mapRef.current?.animateToRegion(region, 500);
+        });
+      } catch (error) {
+        console.error("Error al actualizar la región del mapa:", error);
+      }
+    }
+  };
+  
   // Iniciar registro
   const startRecording = async () => {
     if (!vehicleId) {
@@ -219,54 +301,17 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
       setEndTime(null);
       setRecording(true);
       
-      // Suscribirse a actualizaciones de ubicación
+      // Reiniciar el filtro Kalman para la nueva sesión
+      kalmanFilter.current.reset();
+      
+      // Suscribirse a actualizaciones de ubicación con ajustes optimizados
       locationSubscription.current = await Location.watchPositionAsync(
         {
-          accuracy: Location.Accuracy.High,
-          distanceInterval: 10, // Actualizar cada 10 metros
-          timeInterval: 5000    // O cada 5 segundos
+          accuracy: Location.Accuracy.BestForNavigation,
+          distanceInterval: 5,      // Actualizar cada 5 metros
+          timeInterval: 3000        // O cada 3 segundos
         },
-        (location) => {
-          console.log("Nueva ubicación:", location.coords);
-          setCurrentLocation(location);
-          
-          // Agregar ubicación a la lista
-          const newLocation: ILocation = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            timestamp: location.timestamp
-          };
-          
-          setLocations(prevLocations => {
-            const updatedLocations = [...prevLocations, newLocation];
-            
-            // Calcular distancia si hay al menos 2 puntos
-            if (updatedLocations.length >= 2) {
-              const lastIdx = updatedLocations.length - 1;
-              const prevCoord = updatedLocations[lastIdx - 1];
-              const newCoord = updatedLocations[lastIdx];
-              
-              const segmentDistance = calculateDistance(
-                prevCoord.latitude, prevCoord.longitude,
-                newCoord.latitude, newCoord.longitude
-              );
-              
-              setDistance(prevDistance => prevDistance + segmentDistance);
-            }
-            
-            return updatedLocations;
-          });
-          
-          // Centrar mapa en la ubicación actual
-          if (mapRef.current) {
-            mapRef.current.animateToRegion({
-              latitude: location.coords.latitude,
-              longitude: location.coords.longitude,
-              latitudeDelta: LATITUDE_DELTA,
-              longitudeDelta: LONGITUDE_DELTA
-            });
-          }
-        }
+        processNewLocation
       );
       
       Alert.alert("Recorrido iniciado", "Se está registrando tu recorrido por GPS");
@@ -275,6 +320,7 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
       Alert.alert("Error", "No se pudo iniciar el registro del recorrido");
     }
   };
+  
   // Detener registro
   const stopRecording = () => {
     if (locationSubscription.current) {
@@ -293,24 +339,24 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
       return;
     }
     
+    // Ajustar el mapa para mostrar todo el recorrido
+    if (mapRef.current && locations.length > 0) {
+      mapRef.current.fitToCoordinates(
+        locations.map(loc => ({
+          latitude: loc.latitude,
+          longitude: loc.longitude
+        })),
+        {
+          edgePadding: { top: 50, right: 50, bottom: 50, left: 50 },
+          animated: true
+        }
+      );
+    }
+    
     Alert.alert(
       "Recorrido finalizado", 
       `Se registraron ${locations.length} puntos\nDistancia aproximada: ${distance.toFixed(2)} km`
     );
-  };
-  
-  // Calcular distancia entre dos puntos usando fórmula Haversine
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371; // Radio de la tierra en km
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLon = (lon2 - lon1) * Math.PI / 180;
-    const a = 
-      Math.sin(dLat/2) * Math.sin(dLat/2) +
-      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
-      Math.sin(dLon/2) * Math.sin(dLon/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c; // Distancia en km
-    return distance;
   };
   
   // Formatear fecha
@@ -373,7 +419,10 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
           puntos: locations.map(loc => ({
             lat: loc.latitude,
             lon: loc.longitude,
-            time: loc.timestamp
+            time: loc.timestamp,
+            accuracy: loc.accuracy,
+            speed: loc.speed,
+            heading: loc.heading
           })),
           distanciaGPS: distance
         }
@@ -402,7 +451,7 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
       setLoading(false);
     }
   };
-
+  
   // Cancelar recorrido
   const handleCancelRecorrido = () => {
     if (recording) {
@@ -453,6 +502,9 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
             ref={mapRef}
             style={styles.map}
             provider={PROVIDER_GOOGLE}
+            showsUserLocation={true}
+            showsMyLocationButton={true}
+            followsUserLocation={recording}
             initialRegion={{
               latitude: currentLocation.coords.latitude,
               longitude: currentLocation.coords.longitude,
@@ -473,13 +525,13 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
               </View>
             </Marker>
             
-            {/* Ruta recorrida */}
+            {/* Ruta recorrida con suavizado */}
             {locations.length > 1 && (
               <Polyline
-                coordinates={locations.map(loc => ({
+                coordinates={getSmoothPath(locations.map(loc => ({
                   latitude: loc.latitude,
                   longitude: loc.longitude
-                }))}
+                })))}
                 strokeWidth={4}
                 strokeColor="#007AFF"
               />
@@ -603,7 +655,6 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
             <Text style={styles.buttonText}>Iniciar Recorrido</Text>
           </TouchableOpacity>
         )}
-        
         {recording && (
           <TouchableOpacity
             style={[styles.button, styles.stopButton]}
@@ -677,6 +728,21 @@ export default function GPSRecorridoScreen({ navigation }: Props) {
           )}
         </View>
       )}
+      
+      {/* Información depuración (solo para desarrollo) */}
+      {/* 
+      <View style={styles.debugContainer}>
+        <Text style={styles.debugTitle}>Info de depuración:</Text>
+        {currentLocation && (
+          <>
+            <Text>Lat: {currentLocation.coords.latitude.toFixed(6)}</Text>
+            <Text>Lon: {currentLocation.coords.longitude.toFixed(6)}</Text>
+            <Text>Precisión: {currentLocation.coords.accuracy?.toFixed(2)} m</Text>
+            <Text>Velocidad: {currentLocation.coords.speed?.toFixed(2)} m/s</Text>
+          </>
+        )}
+      </View>
+      */}
       
       <View style={{ height: 50 }} />
     </ScrollView>
@@ -884,5 +950,16 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 14,
     color: "#333",
+  },
+  debugContainer: {
+    backgroundColor: "#ffe",
+    marginHorizontal: 15,
+    marginBottom: 15,
+    padding: 10,
+    borderRadius: 8,
+  },
+  debugTitle: {
+    fontWeight: "bold",
+    marginBottom: 5,
   },
 });

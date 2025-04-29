@@ -1,4 +1,4 @@
-// src/screens/RecorridoDetailScreen.tsx
+// src/screens/RecorridoDetailScreen.tsx (mejorado)
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -15,6 +15,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from "react-native-maps";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
+import { getSmoothPath } from "../utils/GPSUtils";
 
 const { width, height } = Dimensions.get("window");
 const ASPECT_RATIO = width / height;
@@ -31,7 +32,8 @@ const RecorridoDetailScreen = () => {
   const [routePoints, setRoutePoints] = useState<Array<{ latitude: number; longitude: number }>>(
     []
   );
-  const [initialRegion, setInitialRegion] = useState(null);
+  const [initialRegion, setInitialRegion] = useState<any>(null);
+  const [showRawPath, setShowRawPath] = useState(false); // Para alternar entre ruta suavizada y original
 
   const navigation = useNavigation();
   const route = useRoute<RouteProp<Record<string, RouteParams>, string>>();
@@ -75,6 +77,10 @@ const RecorridoDetailScreen = () => {
         const points = data.GpsData.puntos.map((p: any) => ({
           latitude: p.lat,
           longitude: p.lon,
+          accuracy: p.accuracy,
+          speed: p.speed,
+          heading: p.heading,
+          timestamp: p.time
         }));
         setRoutePoints(points);
 
@@ -110,6 +116,34 @@ const RecorridoDetailScreen = () => {
   const formatDateTime = (dateStr?: string, timeStr?: string) => {
     if (!dateStr) return "N/A";
     return `${dateStr} ${timeStr || ""}`;
+  };
+
+  // Estimar velocidad promedio
+  const calculateAvgSpeed = () => {
+    if (!recorrido?.GpsData?.distanciaGPS || !recorrido?.Fecha_inicio || !recorrido?.Fecha_fin) {
+      return "N/A";
+    }
+    
+    try {
+      const startDateTime = new Date(`${recorrido.Fecha_inicio}T${recorrido.Hora_inicio || "00:00"}`);
+      const endDateTime = new Date(`${recorrido.Fecha_fin}T${recorrido.Hora_fin || "00:00"}`);
+      
+      // Duración en horas
+      const duration = (endDateTime.getTime() - startDateTime.getTime()) / (1000 * 60 * 60);
+      
+      if (duration <= 0) return "N/A";
+      
+      // Velocidad en km/h
+      const avgSpeed = recorrido.GpsData.distanciaGPS / duration;
+      return `${avgSpeed.toFixed(1)} km/h`;
+    } catch (error) {
+      return "N/A";
+    }
+  };
+
+  // Alternar entre ruta suavizada y original
+  const togglePathType = () => {
+    setShowRawPath(!showRawPath);
   };
 
   // Renderizar componente de carga
@@ -171,18 +205,38 @@ const RecorridoDetailScreen = () => {
             )}
 
             {/* Ruta como línea */}
-            {routePoints.length > 1 && (
+            {routePoints.length > 1 && !showRawPath && (
               <Polyline
-                coordinates={routePoints}
+                coordinates={getSmoothPath(routePoints)}
                 strokeWidth={4}
                 strokeColor="#007AFF"
               />
             )}
+
+            {/* Ruta original (sin suavizado) */}
+            {routePoints.length > 1 && showRawPath && (
+              <Polyline
+                coordinates={routePoints}
+                strokeWidth={4}
+                strokeColor="#34C6DA"
+                lineDashPattern={[5, 2]}
+              />
+            )}
           </MapView>
 
-          <TouchableOpacity style={styles.fitButton} onPress={fitMapToRoute}>
-            <MaterialCommunityIcons name="fit-to-screen" size={24} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.mapButtons}>
+            <TouchableOpacity style={styles.fitButton} onPress={fitMapToRoute}>
+              <MaterialCommunityIcons name="fit-to-screen-outline" size={24} color="#fff" />
+            </TouchableOpacity>
+            
+            <TouchableOpacity style={styles.toggleButton} onPress={togglePathType}>
+              <MaterialCommunityIcons 
+                name={showRawPath ? "vector-polyline" : "vector-curve"} 
+                size={24} 
+                color="#fff" 
+              />
+            </TouchableOpacity>
+          </View>
         </View>
       ) : (
         <View style={styles.noMapContainer}>
@@ -248,14 +302,28 @@ const RecorridoDetailScreen = () => {
         </View>
 
         {hasGpsData && (
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Distancia GPS:</Text>
-            <Text style={styles.detailValue}>
-              {recorrido?.GpsData?.distanciaGPS
-                ? `${recorrido.GpsData.distanciaGPS.toFixed(2)} km`
-                : "N/A"}
-            </Text>
-          </View>
+          <>
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Distancia GPS:</Text>
+              <Text style={styles.detailValue}>
+                {recorrido?.GpsData?.distanciaGPS
+                  ? `${recorrido.GpsData.distanciaGPS.toFixed(2)} km`
+                  : "N/A"}
+              </Text>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Puntos GPS:</Text>
+              <Text style={styles.detailValue}>
+                {recorrido?.GpsData?.puntos?.length || 0}
+              </Text>
+            </View>
+            
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>Vel. Promedio:</Text>
+              <Text style={styles.detailValue}>{calculateAvgSpeed()}</Text>
+            </View>
+          </>
         )}
 
         <View style={styles.detailRow}>
@@ -327,11 +395,27 @@ const styles = StyleSheet.create({
   map: {
     ...StyleSheet.absoluteFillObject,
   },
-  fitButton: {
+  mapButtons: {
     position: "absolute",
     bottom: 15,
     right: 15,
+  },
+  fitButton: {
     backgroundColor: "#007AFF",
+    borderRadius: 30,
+    width: 50,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    marginBottom: 10,
+  },
+  toggleButton: {
+    backgroundColor: "#34C6DA",
     borderRadius: 30,
     width: 50,
     height: 50,
